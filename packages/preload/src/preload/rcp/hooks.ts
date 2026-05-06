@@ -1,3 +1,5 @@
+import { graph, dependencies, dependents, names } from './graph';
+
 /**
  * Riot Client Plugin (RCP) hooks.
  *
@@ -301,6 +303,11 @@ export const rcp = {
   postInit,
   whenReady,
   get,
+  // Plugin dependency graph access (see ./graph.ts).
+  graph,
+  dependencies,
+  dependents,
+  names,
 };
 
 // Expose on `window` for advanced plugin authors who don't have access to
