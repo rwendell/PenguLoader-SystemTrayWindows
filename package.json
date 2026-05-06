@@ -1,0 +1,29 @@
+{
+  "name": "pengu-loader",
+  "version": "1.2.0",
+  "description": "The ultimate JavaScript plugin loader",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/hub",
+    "packages/preload",
+    "packages/types"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PenguLoader/PenguLoader.git"
+  },
+  "keywords": [
+    "league-of-legends",
+    "league-client",
+    "plugin-loader"
+  ],
+  "bugs": {
+    "url": "https://github.com/PenguLoader/PenguLoader/issues"
+  },
+  "homepage": "https://github.com/PenguLoader/PenguLoader#readme"
+}

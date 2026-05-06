@@ -1,8 +1,8 @@
 VERSION := 1.2.0
 
 # Directories
-SRC_DIR := core/src
-BIN_DIR := bin
+SRC_DIR := ./src
+BIN_DIR := ../bin
 OBJ_DIR := $(BIN_DIR)/obj
 PLUGINS_DIR := $(BIN_DIR)/plugins
 
@@ -23,12 +23,12 @@ TARGET_LIB_PATH := $(TARGET_LIB_DIR)/libEGL.dylib
 # Compiler
 CC := clang
 CXX := clang++
-CXXFLAGS := -std=c++20 -fPIC -arch x86_64 -I./core/cef -I./core/src -fvisibility=hidden -Wno-address-of-temporary -Wno-nonportable-include-path
+CXXFLAGS := -std=c++20 -fPIC -arch x86_64 -I./cef -I./src -fvisibility=hidden -Wno-address-of-temporary -Wno-nonportable-include-path
 
 # Linker
 LDFLAGS := -shared -dynamiclib -arch x86_64 -current_version $(VERSION) -compatibility_version 1.0.0
-LDLIBS := -framework cocoa -Lcore/cef/lib/mac -weak-lcef.d -flat_namespace
-
+LDLIBS := -framework cocoa -L./cef/lib/mac -weak-lcef.d -flat_namespace
+	
 # Source files
 CPP_SRCS := $(wildcard $(SRC_DIR)/*.cc) $(wildcard $(SRC_DIR)/**/*.cc)
 OBJCXX_SRCS := $(wildcard $(SRC_DIR)/**/*.mm)
@@ -67,7 +67,7 @@ $(LIB_OUT_PATH): $(CPP_OBJS) $(OBJCXX_OBJS)
 #	@install_name_tool -change "libcef.d.dylib" "@loader_path/../Chromium Embedded Framework" $@
 
 $(INSERT_DYLIB_PATH):
-	$(CC) -O2 -o $@ core/insert_dylib.c
+	$(CC) -O2 -o $@ ./insert_dylib.c
 
 install: $(LIB_OUT_PATH) $(INSERT_DYLIB_PATH)
 	cp -n $(TARGET_LIB_PATH) $(TARGET_LIB_PATH).bak || true
