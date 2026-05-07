@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Pengu</RootNamespace>
+    <!-- Assembly name is distinct from the head exe (which is also called
+         "Pengu" -> Pengu.exe + Pengu.dll). If both used "Pengu" the head's
+         Pengu.dll would clobber the lib's at copy-to-output time and produce
+         "Could not load type 'Pengu.AppEnv'" at runtime. The namespace stays
+         "Pengu" so all types render as Pengu.AppEnv etc. -->
+    <AssemblyName>Pengu.Core</AssemblyName>
+    <PackageId>Pengu.Core</PackageId>
+    <!-- Class library: AOT compile happens at the head exe level. -->
+    <PublishAot>false</PublishAot>
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pengu.Gen\Pengu.Gen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

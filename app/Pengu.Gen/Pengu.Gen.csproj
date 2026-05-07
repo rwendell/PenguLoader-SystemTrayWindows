@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Pengu.Gen</RootNamespace>
+    <AssemblyName>Pengu.Gen</AssemblyName>
+    <!-- Source generators run inside the compiler — opt out of AOT and trimming. -->
+    <PublishAot>false</PublishAot>
+    <IsAotCapable>false</IsAotCapable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- netstandard2.0 generators have to opt out of nullable and ImplicitUsings
+         since the analyzer host doesn't pull modern reference assemblies. -->
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

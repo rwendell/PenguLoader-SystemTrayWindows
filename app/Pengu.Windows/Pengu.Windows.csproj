@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Debug builds produce a console-subsystem exe so logs are visible in a terminal.
+         Release ships as a windowed exe with no allocated console. -->
+    <OutputType Condition="'$(Configuration)' == 'Debug'">Exe</OutputType>
+    <OutputType Condition="'$(Configuration)' != 'Debug'">WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>Pengu.Windows</RootNamespace>
+    <AssemblyName>Pengu</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app-icon.ico</ApplicationIcon>
+    <!-- The head is an exe, not a NuGet package. PackageId would otherwise
+         default to AssemblyName ("Pengu") and collide with the core lib's
+         package. -->
+    <IsPackable>false</IsPackable>
+    <PackageId>Pengu.WindowsHead</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pengu\Pengu.csproj" />
+    <ProjectReference Include="..\Pengu.Gen\Pengu.Gen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2592.51">
+      <ExcludeAssets>compile</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Diga.WebView2.Interop.AOT" Version="1.0.4-preview" />
+    <PackageReference Include="Vanara.PInvoke.Kernel32" Version="5.0.0" />
+    <PackageReference Include="Vanara.PInvoke.User32" Version="5.0.0" />
+    <PackageReference Include="Vanara.PInvoke.DwmApi" Version="5.0.0" />
+  </ItemGroup>
+
+  <!-- Release-only: build the SolidJS hub bundle and zip it into app.dat
+       beside the published exe. Debug skips the zip and the host runs against
+       the Vite dev server (set the dev URL via CLI). -->
+  <Target Name="BuildHubBundle" BeforeTargets="BeforeBuild"
+          Condition="'$(Configuration)' == 'Release'">
+    <Message Importance="high" Text="Pengu: building hub bundle (pnpm)" />
+    <Exec Command="pnpm --filter @pengu/hub build"
+          WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
+    <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)..\..\packages\hub\dist"
+                  DestinationFile="$(IntermediateOutputPath)app.dat"
+                  Overwrite="true" />
+  </Target>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <None Include="$(IntermediateOutputPath)app.dat"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
+</Project>

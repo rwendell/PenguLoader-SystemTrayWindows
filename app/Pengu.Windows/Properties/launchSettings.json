@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Pengu (dev)": {
+      "commandName": "Project",
+      "commandLineArgs": "--dev=http://localhost:1420 --verbose"
+    },
+    "Pengu (packed)": {
+      "commandName": "Project"
+    }
+  }
+}

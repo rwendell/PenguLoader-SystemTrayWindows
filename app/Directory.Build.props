@@ -1,0 +1,25 @@
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <ProductName>Pengu</ProductName>
+    <Company>PenguLoader</Company>
+    <Copyright>Copyright (c) PenguLoader contributors</Copyright>
+    <Version>1.2.0</Version>
+  </PropertyGroup>
+
+  <!-- AOT defaults; opt out per-project where it doesn't apply (e.g. source generator). -->
+  <PropertyGroup Condition="'$(IsAotCapable)' != 'false'">
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <TrimMode>full</TrimMode>
+    <StripSymbols>true</StripSymbols>
+  </PropertyGroup>
+
+</Project>
