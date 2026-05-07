@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Pengu.Activation;
 using Pengu.Config;
+using Pengu.Plugins;
 
 namespace Pengu;
 
@@ -30,4 +31,8 @@ namespace Pengu;
 [JsonSerializable(typeof(ConfigSnapshot))]
 [JsonSerializable(typeof(ConfigApp))]
 [JsonSerializable(typeof(ConfigClient))]
+[JsonSerializable(typeof(PluginInfo))]
+[JsonSerializable(typeof(PluginInfo[]))]
+[JsonSerializable(typeof(StorePlugin))]
+[JsonSerializable(typeof(StorePlugin[]))]
 public partial class PenguJsonContext : JsonSerializerContext;

@@ -49,11 +49,12 @@ public static class AppHost
         configStore.Load();
 
         // Bridge surface registered with every window opened by the host.
-        // PingApi is the diagnostic round-trip; ConfigApi is A.1.
+        // PingApi is the diagnostic round-trip; ConfigApi is A.1; PluginsApi is A.2.
         var handlers = new List<IJsInteropDispatcher>
         {
             new Api.PingApi(),
             new Api.ConfigApi(configStore),
+            new Api.PluginsApi(configStore, host.DataRoot),
         };
 
         try

@@ -117,6 +117,27 @@ public class JsInteropGenerator : IIncrementalGenerator
         if (passthrough)
             return new TypeInfo(fullName, "_passthrough_", true);
 
+        // System.Text.Json source-gen names the property for `T[]` as
+        // `<TypeName>Array` (e.g. `PluginInfo[]` -> `PluginInfoArray`,
+        // `string[]` -> `StringArray`). Match that convention so the
+        // generated dispatcher reaches the right Default.X property.
+        if (type is IArrayTypeSymbol arr)
+        {
+            var elem = arr.ElementType;
+            string elemProp = elem.SpecialType switch
+            {
+                SpecialType.System_String  => "String",
+                SpecialType.System_Int32   => "Int32",
+                SpecialType.System_Int64   => "Int64",
+                SpecialType.System_Boolean => "Boolean",
+                SpecialType.System_Double  => "Double",
+                SpecialType.System_Single  => "Single",
+                SpecialType.System_Byte    => "Byte",
+                _ => SanitizeIdentifier(elem.Name),
+            };
+            return new TypeInfo(fullName, elemProp + "Array", false);
+        }
+
         string prop;
         switch (type.SpecialType)
         {
