@@ -19,9 +19,9 @@ export function SearchBar() {
   };
 
   return (
-    <div class="flex items-center px-3 border-b border-gray-300 bg-white/90">
+    <div class="pengu-cmdbar-search">
       <svg
-        class="w-4 h-4 mr-0 text-neutral-400 shrink-0"
+        class="pengu-cmdbar-search-icon"
         xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
       >
@@ -34,8 +34,7 @@ export function SearchBar() {
         onKeyDown={onKeyDown}
         onInput={e => setSearch(e.target.value)}
         onBlur={() => setTimeout(() => input.focus(), 50)}
-        class="flex w-full px-2 py-3 text-sm bg-transparent border-none rounded-md outline-none
-        placeholder:text-neutral-400 h-11 disabled:cursor-not-allowed disabled:opacity-50"
+        class="pengu-cmdbar-search-input"
         placeholder={_t('cmdbar_type_hint')} autocomplete="off" autocorrect="off" spellcheck={false}
       />
     </div>

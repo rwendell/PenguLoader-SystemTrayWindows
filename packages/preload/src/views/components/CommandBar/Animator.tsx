@@ -93,7 +93,7 @@ export function Animator(props) {
   return (
     <div
       ref={outerRef!}
-      class="w-full h-full"
+      class="pengu-cmdbar-animator"
       style={appearanceAnimationKeyframes[0]}
     >
       <div ref={innerRef!}>

@@ -3,6 +3,7 @@ import { useRoot, VisualState } from './root';
 import { SearchBar } from './SearchBar';
 import { SearchResults } from './SearchResults';
 import { Animator } from './Animator';
+import './style.css';
 
 export function CommandBar() {
 
@@ -23,15 +24,11 @@ export function CommandBar() {
 
   return (
     <Show when={!hidden()}>
-      <div class="fixed top-0 left-0 z-[99] flex items-center justify-center w-screen h-screen">
-        <div
-          class="absolute inset-0 w-full h-full bg-black bg-opacity-40"
-          onClick={backdropClick}
-        />
-        <div class="flex min-h-[370px] justify-center w-full max-w-xl items-start relative">
+      <div class="pengu-cmdbar-overlay">
+        <div class="pengu-cmdbar-backdrop" onClick={backdropClick} />
+        <div class="pengu-cmdbar-container">
           <Animator>
-            <div class="box-border flex flex-col w-full h-full overflow-hidden
-           bg-white rounded-md shadow-md bg-opacity-90 drop-shadow-md backdrop-blur-sm">
+            <div class="pengu-cmdbar-panel">
               <SearchBar />
               <SearchResults />
             </div>

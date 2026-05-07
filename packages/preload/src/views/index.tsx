@@ -3,19 +3,27 @@ import { render } from 'solid-js/web';
 import App from './App';
 import './style.css';
 
-import install from '@twind/with-web-components';
-import config from '../../twind.config';
 import { rcp } from '../preload/rcp';
 import { loadTranslation } from './lib/i18n';
 
 const rootId = 'pengu-root';
-const withTwind = install(config);
 
-class PenguRoot extends withTwind(HTMLElement) {
-  constructor() {
-    super();
-    const shadow = this.attachShadow({ mode: 'open' });
-    render(() => <App />, shadow);
+// Light DOM (no shadow root) — our CSS uses `pengu-` prefixed classes to avoid
+// colliding with LCUX's own styles. We previously used a shadow root for style
+// isolation, but it required twind for tailwind-style utilities to scope inside
+// the shadow tree, which dragged ~25-30 KB of bundle weight. Plain CSS with
+// prefixed classes does the job at near-zero cost.
+//
+// Render in `connectedCallback`, not the constructor — the Custom Elements
+// spec forbids adding children to the element from the constructor (browsers
+// silently no-op or throw). connectedCallback runs once the element is
+// inserted into the DOM, which is when child insertion is allowed.
+class PenguRoot extends HTMLElement {
+  private _rendered = false;
+  connectedCallback() {
+    if (this._rendered) return;
+    this._rendered = true;
+    render(() => <App />, this);
   }
 }
 
@@ -43,8 +51,8 @@ async function mount() {
   }
 
   await customElements.whenDefined(rootId);
-  const twind = document.createElement(rootId);
-  root.appendChild(twind);
+  const el = document.createElement(rootId);
+  root.appendChild(el);
 }
 
 customElements.define(rootId, PenguRoot);

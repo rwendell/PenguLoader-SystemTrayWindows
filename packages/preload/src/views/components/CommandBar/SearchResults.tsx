@@ -96,16 +96,13 @@ export function SearchResults() {
   });
 
   return (
-    <div
-      ref={containerRef!}
-      class="max-h-[320px] overflow-y-auto overflow-x-hidden scroll-smooth"
-    >
+    <div ref={containerRef!} class="pengu-cmdbar-results">
       <For each={filteredItems()}>
         {(item, index) => (
-          <div class="pb-1 space-y-1">
+          <div class="pengu-cmdbar-group">
             <Show when={shouldShowCategory(item, index())}>
-              <div class="px-1 overflow-hidden text-gray-700">
-                <div class="px-2 py-1 my-1 text-xs font-medium text-neutral-500 capitalize">
+              <div class="pengu-cmdbar-category">
+                <div class="pengu-cmdbar-category-label">
                   {evaluate(item.group)}
                 </div>
               </div>

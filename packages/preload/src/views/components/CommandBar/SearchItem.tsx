@@ -13,22 +13,20 @@ export function SearchItem(props: Props) {
   const { activeIndex, setActiveIndex } = useRoot();
 
   return (
-    <div class="px-1">
+    <div class="pengu-cmdbar-item-wrap">
       <div
         data-index={props.index}
         data-active={activeIndex() === props.index}
         onClick={props.click}
         onMouseMove={() => setActiveIndex(props.index)}
-        class="cursor-pointer relative flex select-none items-center rounded px-2 py-1.5
-          text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50
-          data-[active=true]:bg-slate-700 data-[active=true]:text-white"
+        class="pengu-cmdbar-item"
       >
         <Show when={props.item.icon}>
           <span innerHTML={props.item.icon}></span>
         </Show>
         <span>{evaluate(props.item.name)}</span>
         <Show when={props.item.legend}>
-          <span class="ml-auto text-xs tracking-widest">{evaluate(props.item.legend)}</span>
+          <span class="pengu-cmdbar-item-legend">{evaluate(props.item.legend)}</span>
         </Show>
       </div>
     </div>
