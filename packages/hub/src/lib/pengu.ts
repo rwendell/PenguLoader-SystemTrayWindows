@@ -148,7 +148,11 @@ export interface PenguBridge {
   }
 
   path: {
-    join(...parts: string[]): Promise<string>
+    /**
+     * Join path segments. Bridge wire format requires a single argument, so
+     * pass an array (not rest-params). Empty input -> empty string.
+     */
+    join(parts: string[]): Promise<string>
   }
 }
 

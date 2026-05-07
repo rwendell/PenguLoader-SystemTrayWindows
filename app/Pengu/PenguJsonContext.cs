@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Pengu.Activation;
+using Pengu.Api;
 using Pengu.Config;
 using Pengu.Plugins;
 
@@ -22,6 +23,7 @@ namespace Pengu;
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     WriteIndented = false)]
 [JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(long))]
 [JsonSerializable(typeof(bool))]
@@ -35,4 +37,7 @@ namespace Pengu;
 [JsonSerializable(typeof(PluginInfo[]))]
 [JsonSerializable(typeof(StorePlugin))]
 [JsonSerializable(typeof(StorePlugin[]))]
+[JsonSerializable(typeof(HostInfo))]
+[JsonSerializable(typeof(DirEntry))]
+[JsonSerializable(typeof(DirEntry[]))]
 public partial class PenguJsonContext : JsonSerializerContext;

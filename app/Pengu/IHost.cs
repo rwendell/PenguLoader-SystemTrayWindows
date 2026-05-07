@@ -7,8 +7,8 @@ namespace Pengu;
 /// Pengu.MacOS). <see cref="AppHost"/> orchestrates startup against this
 /// interface so the same control flow runs on both platforms.
 ///
-/// <para>Methods marked async run on the dispatcher thread; the implementation
-/// MUST not block (use the head's dispatcher to schedule work).</para>
+/// <para>Synchronous members can run on the calling thread (typically the
+/// UI thread); long-running operations should be async.</para>
 /// </summary>
 public interface IHost
 {
@@ -38,4 +38,36 @@ public interface IHost
     /// <see cref="JsBridge"/>; bridge handlers in <paramref name="bridgeHandlers"/>
     /// are registered before the JS shim is injected.</summary>
     Task OpenMainWindowAsync(string url, IReadOnlyList<IJsInteropDispatcher> bridgeHandlers);
+
+    // ---------- A.3: HostApi-driven operations ----------
+
+    /// <summary>Whether the calling user has admin / elevation. Used by
+    /// <c>pengu.host.getInfo()</c>.</summary>
+    bool IsAdmin();
+
+    /// <summary>Minimize the main window. No-op if no window is open yet.</summary>
+    void MinimizeMainWindow();
+
+    /// <summary>Post a close message to the main window. No-op if no window
+    /// is open yet. Mode-conditional close behavior (hide-to-tray vs exit)
+    /// is the window's responsibility, not the host's.</summary>
+    void CloseMainWindow();
+
+    /// <summary>Begin a programmatic window drag (<c>ReleaseCapture</c> +
+    /// <c>SendMessage(WM_NCLBUTTONDOWN, HTCAPTION, 0)</c> on Windows). Rare —
+    /// <c>app-region: drag</c> CSS handles drag for most UI elements.</summary>
+    void StartDragging();
+
+    /// <summary>Show a native folder-picker dialog. Returns the chosen path
+    /// or null if the user cancelled.</summary>
+    /// <param name="initialPath">Initial directory; null to use the system
+    /// default starting location.</param>
+    Task<string?> PickFolderAsync(string? initialPath);
+
+    /// <summary>Whether the loader is registered to launch on user login.
+    /// HKCU\...\Run on Windows; LaunchAgent plist on macOS.</summary>
+    bool StartupIsEnabled();
+
+    /// <summary>Toggle launch-on-login.</summary>
+    void SetStartupEnabled(bool enabled);
 }

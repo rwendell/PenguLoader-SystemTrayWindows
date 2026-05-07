@@ -1,9 +1,13 @@
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using Pengu;
 using Pengu.Bridge;
 using Pengu.Logging;
 using Pengu.Windows.Browser;
+using Pengu.Windows.Native;
 using Pengu.Windows.Window;
+using Vanara.PInvoke;
+using static Vanara.PInvoke.User32;
 
 namespace Pengu.Windows;
 
@@ -15,6 +19,14 @@ internal sealed class WindowsHost : IHost
 {
     public string DataRoot { get; }
     public string ExeDirectory { get; }
+
+    /// <summary>
+    /// The borderless window currently hosting the hub UI, captured during
+    /// <see cref="OpenMainWindowAsync"/>. <see cref="MinimizeMainWindow"/> /
+    /// <see cref="CloseMainWindow"/> / <see cref="StartDragging"/> act on
+    /// this window. Null until the first window opens.
+    /// </summary>
+    private BorderlessWindow? _mainWindow;
 
     public WindowsHost()
     {
@@ -63,8 +75,72 @@ internal sealed class WindowsHost : IHost
         window.Show();
         window.Browser.Navigate(url);
 
+        _mainWindow = window;
         Log.Info("Main window shown ({0} handlers registered)", bridgeHandlers.Count);
     }
+
+    // ---------- A.3 ----------
+
+    public bool IsAdmin()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        try
+        {
+            using var identity = WindowsIdentity.GetCurrent();
+            var principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public void MinimizeMainWindow()
+    {
+        var hwnd = MainHandle;
+        if (hwnd.IsNull) return;
+        ShowWindow(hwnd, ShowWindowCommand.SW_MINIMIZE);
+    }
+
+    public void CloseMainWindow()
+    {
+        var hwnd = MainHandle;
+        if (hwnd.IsNull) return;
+        PostMessage(hwnd, (uint)WindowMessage.WM_CLOSE);
+    }
+
+    public void StartDragging()
+    {
+        // Mid-drag programmatic window-drag: the standard Win32 trick is to
+        // release the current mouse capture and synthesize a non-client
+        // left-button-down on the caption. The window then enters the
+        // Win32 drag loop as if the user clicked the title bar.
+        var hwnd = MainHandle;
+        if (hwnd.IsNull) return;
+        ReleaseCapture();
+        SendMessage(hwnd, (uint)WindowMessage.WM_NCLBUTTONDOWN, (IntPtr)(int)HitTestValues.HTCAPTION, IntPtr.Zero);
+    }
+
+    public Task<string?> PickFolderAsync(string? initialPath)
+    {
+        // Bridge calls dispatch through the UI message loop, so we're already
+        // on the UI thread. SHBrowseForFolderW pumps the same loop while
+        // modal — calling it directly is correct and simplest.
+        var owner = MainHandle.IsNull ? IntPtr.Zero : MainHandle.DangerousGetHandle();
+        var picked = FolderPicker.Pick(owner, "Select a folder", initialPath);
+        return Task.FromResult(picked);
+    }
+
+    public bool StartupIsEnabled() => StartupRegistry.IsEnabled();
+
+    public void SetStartupEnabled(bool enabled)
+    {
+        var exe = Environment.ProcessPath ?? Path.Combine(ExeDirectory, "Pengu.exe");
+        StartupRegistry.SetEnabled(enabled, exe);
+    }
+
+    private HWND MainHandle => _mainWindow?.Handle ?? HWND.NULL;
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
