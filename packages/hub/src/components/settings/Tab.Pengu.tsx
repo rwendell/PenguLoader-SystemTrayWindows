@@ -1,10 +1,10 @@
 import { Component, createSignal, onMount, Show } from 'solid-js'
-import { dialog } from '@tauri-apps/api'
 import { Config, useConfig } from '~/lib/config'
 import { LeagueClient } from '~/lib/league-client'
 import { CheckOption, OptionSet, RadioOption } from './templates'
 import { ActivationMode, CoreModule } from '~/lib/core-module'
 import { Startup } from '~/lib/startup'
+import { pengu } from '~/lib/pengu'
 
 const LaunchSettings: Component = () => {
   const [startup, setSatrtup] = createSignal(false)
@@ -36,11 +36,7 @@ export const TabPengu: Component = () => {
   const { app } = useConfig()
 
   const changePluginsDir = async () => {
-    const dir = await dialog.open({
-      directory: true,
-      defaultPath: Config.basePath(),
-    })
-
+    const dir = await pengu.host.pickFolder(Config.basePath())
     if (typeof dir === 'string') {
       await app.plugins_dir(dir)
     }
@@ -48,22 +44,20 @@ export const TabPengu: Component = () => {
 
   const setActivationMode = async (mode: ActivationMode) => {
     if (await CoreModule.isActivated()) {
-      await dialog.message('Please deactivate Pengu before changing the activation mode.', { type: 'warning' })
+      // TODO(overlay): replace browser alert with the in-app message overlay.
+      alert('Please deactivate Pengu before changing the activation mode.')
     } else {
       await app.activation_mode(mode)
     }
   }
 
   const changeLeagueDir = async () => {
-    const dir = await dialog.open({
-      directory: true
-    })
-
+    const dir = await pengu.host.pickFolder()
     if (typeof dir === 'string') {
       if (await LeagueClient.validateDir(dir)) {
         await app.league_dir(dir)
       } else {
-        await dialog.message('Your selected path is not valid.', { type: 'warning' })
+        alert('Your selected path is not valid.')
       }
     }
   }
@@ -97,15 +91,15 @@ export const TabPengu: Component = () => {
         <Show when={!window.isMac}>
           <RadioOption
             caption="Universal"
-            message="Apply to all League Clients, including live and PBE."
+            message="Apply to all League Clients via IFEO. Requires UAC once at install; survives across launches."
             checked={app.activation_mode() === ActivationMode.Universal}
             onClick={() => setActivationMode(ActivationMode.Universal)}
           />
           <RadioOption
-            caption="Targeted"
-            message="Apply to a specific League Client that you choose. Use it if you get access denied in Universal mode, except the Tencent server."
-            checked={app.activation_mode() === ActivationMode.Targeted}
-            onClick={() => setActivationMode(ActivationMode.Targeted)}
+            caption="On-demand"
+            message="Apply only to a League Client launched from the Riot Client. No admin needed; Pengu must keep running in the background."
+            checked={app.activation_mode() === ActivationMode.OnDemand}
+            onClick={() => setActivationMode(ActivationMode.OnDemand)}
           />
         </Show>
         <Show when={window.isMac}>

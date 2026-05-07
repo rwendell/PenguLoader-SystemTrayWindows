@@ -109,3 +109,18 @@ body::after {
 ::-webkit-scrollbar-thumb {
   @apply bg-gray-500 rounded-md;
 }
+
+/*
+ * Drag region for the host's borderless window. WebView2 has the
+ * msWebView2EnableDraggableRegions feature flag enabled (see Pengu.Windows
+ * Browser/WebView2Environment.cs), which honors the standard `app-region`
+ * CSS property. Replaces Tauri's `data-tauri-drag-region` HTML attribute.
+ */
+.app-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+.app-drag :where(button, a, input, [role='button'], .app-no-drag) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}

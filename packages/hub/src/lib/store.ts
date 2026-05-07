@@ -1,30 +1,15 @@
-import yaml from 'js-yaml'
+import { pengu, type StorePlugin } from './pengu'
 
-interface IPlugin {
-  name: string
-  slug: string
-  description: string
+export type { StorePlugin }
 
-  images: string[]
-  repo: string
-  tags: string[]
-
-  theme: boolean
-  auto_update: boolean
-}
-
-interface IRegistry {
-  name: string
-  version: string
-  plugins: IPlugin
-}
-
-export const StoreManager = new class {
-
-  async fetchPlugins(): Promise<IPlugin> {
-    const res = await fetch('https://raw.githack.com/PenguLoader/plugin-store/main/registry/plugins.yml')
-    const registry = <IRegistry>await res.text().then(t => yaml.load(t))
-    return registry.plugins
-  }
-
+/**
+ * Plugin store registry browser. The host fetches and parses the YAML registry
+ * at `https://raw.githack.com/PenguLoader/plugin-store/main/registry/plugins.yml`
+ * and returns typed entries. The registry remains a placeholder pending
+ * automation; this is browse-only.
+ */
+export const StoreManager = {
+  fetchPlugins(): Promise<StorePlugin[]> {
+    return pengu.plugins.fetchStoreRegistry()
+  },
 }

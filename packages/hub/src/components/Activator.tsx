@@ -1,7 +1,6 @@
 import { Component, createSignal, onMount } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { CoreModule } from '../lib/core-module'
-import { dialog, event } from '@tauri-apps/api'
 import { BoltIcon, PowerIcon } from './Icons'
 
 export const Activator: Component = () => {
@@ -14,13 +13,10 @@ export const Activator: Component = () => {
       setLoading(true)
 
       try {
-        if (!await CoreModule.checkLeagueDir()) {
-          await dialog.message('Please select a valid LoL Client folder in Settings.', { type: 'warning' })
-          return
-        }
-
         if (!await CoreModule.exists()) {
-          await dialog.message('Failed to perform activation, the core module is not found.', { type: 'warning' })
+          // TODO(overlay): replace browser alert with the in-app message overlay
+          // once the component lands. Native dialogs are out of scope for app/.
+          alert('Failed to perform activation, the core module is not found.')
           return
         }
 
@@ -28,7 +24,7 @@ export const Activator: Component = () => {
         const { activated, error } = await CoreModule.doActivate(nextActive)
 
         if (error) {
-          await dialog.message(`Failed to perform activation, got error:\n${error}`, { type: 'warning' })
+          alert(`Failed to perform activation, got error:\n${error}`)
         } else if (activated === nextActive) {
           setActive(activated)
         }
@@ -43,11 +39,17 @@ export const Activator: Component = () => {
     setActive(await CoreModule.isActivated())
     setLoading(false)
 
-    if (window.isMac) {
-      event.listen('active-status', (e) => {
-        setActive(Boolean(e.payload))
-      })
-    }
+    // Daemon-driven state changes (RCS WAMP detect / tray toggle). Replaces
+    // Tauri's `event.listen('active-status', ...)`. The host emits
+    // `activation:stateChanged { active: boolean }` from C# (see
+    // docs/app-hub.md §8.8) once activation lands; this listener is a no-op
+    // until then.
+    window.addEventListener('activation:stateChanged', (e) => {
+      const detail = (e as CustomEvent<{ active: boolean }>).detail
+      if (detail && typeof detail.active === 'boolean') {
+        setActive(detail.active)
+      }
+    })
   })
 
   return (

@@ -18,7 +18,7 @@ export default defineConfig({
   },
   define: {
     '__VERSION__': JSON.stringify(pkg.version),
-    '__PLATFORM__':  JSON.stringify(process.platform),
+    '__PLATFORM__': JSON.stringify(process.platform),
   },
   publicDir: false,
   plugins: [
@@ -30,17 +30,12 @@ export default defineConfig({
     }
   },
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent vite from obscuring rust errors
+  // Dev server: the .NET host (Pengu.Windows) launches with
+  // `--dev=http://localhost:1420` and navigates straight here, bypassing the
+  // packed `app.dat` flow. Fixed port so the launchSettings profile can hard-code it.
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,
     strictPort: true,
-    watch: {
-      // 3. tell vite to ignore watching `src-tauri`
-      ignored: ['**/src-tauri/**'],
-    },
   },
 })

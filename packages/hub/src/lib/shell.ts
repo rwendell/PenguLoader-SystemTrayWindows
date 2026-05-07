@@ -1,33 +1,24 @@
-import { invoke, shell } from '@tauri-apps/api'
+import { pengu } from './pengu'
 
+/**
+ * Thin wrappers over the host bridge's shell methods. The hub uses these
+ * everywhere it would have called Tauri's `shell` / `invoke('plugin:shell|...')`.
+ */
 export const Shell = {
-    /**
-     * Expand a folder in file explorer.
-     * @param path Absolute path to folder.
-     */
+    /** Open a folder in Explorer / Finder. */
     async expandFolder(path: string) {
-        await invoke('plugin:shell|expand_folder', {
-            path: path
-        })
+        await pengu.host.openFolder(path)
     },
 
-    /**
-     * Reveal a file in file explorer.
-     * @param path Absolute path to file.
-     */
+    /** Reveal a file (highlighted) in Explorer / Finder. */
     async revealFile(path: string) {
-        await invoke('plugin:shell|reveal_file', {
-            path: path
-        })
+        await pengu.host.revealFile(path)
     },
 
-    /**
-     * Open an external link.
-     * @param url URL.
-     */
+    /** Open an external URL in the system browser. Hardened to https only. */
     async openLink(url: string) {
         if (typeof url === 'string' && url.startsWith('https://')) {
-            await shell.open(url)
+            await pengu.host.openExternal(url)
         }
     },
 }

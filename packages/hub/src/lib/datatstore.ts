@@ -1,35 +1,19 @@
-import { exists, readBinaryFile } from '@tauri-apps/api/fs'
-import { Config } from './config'
+import { pengu } from './pengu'
 
-export const DataStore = new class {
-
-    async json(): Promise<object> {
-        const path = await Config.basePath('datastore')
-        if (await exists(path)) {
-            try {
-                const data = await readBinaryFile(path)
-                this.transform(data)
-                return this.decode(data)
-            } catch {
-            }
-        }
-        return {}
-    }
-
-    private decode(data: Uint8Array) {
-        if (data.length >= 2) {
-            const decoder = new TextDecoder()
-            const json = decoder.decode(data)
-            return JSON.stringify(json)
-        } else {
+/**
+ * Read-only browse of `<data_root>/datastore` (the XOR-encoded JSON file the
+ * core's `window.DataStore` reads/writes inside LCUX). Decoding happens in
+ * C# host-side; the hub just consumes the parsed object.
+ *
+ * Plugins that need to *write* to the datastore go through the core's
+ * `window.DataStore.set` API inside LCUX, not through the hub.
+ */
+export const DataStore = {
+    async json(): Promise<Record<string, unknown>> {
+        try {
+            return await pengu.host.readDataStore()
+        } catch {
             return {}
         }
-    }
-
-    private transform(data: Uint8Array) {
-        const key = 'A5dgY6lz9fpG9kGNiH1mZ'
-        for (let i = 0; i < data.length; i++) {
-            data[i] ^= key.charCodeAt(i % key.length)
-        }
-    }
+    },
 }

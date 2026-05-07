@@ -25,7 +25,7 @@ export const Settings: Component = () => {
       class="h-screen fixed inset-0 bg-[#0006] z-50 flex justify-center items-center aria-hidden:hidden"
       aria-hidden={!settings.visible()}
     >
-      <div data-tauri-drag-region class="absolute top-0 w-full h-10" />
+      <div class="app-drag absolute top-0 w-full h-10" />
       <div class="border-[1px] border-foreground/15 bg-card rounded-[12px] relative flex w-[800px] h-[460px]">
 
         <span class="absolute top-2 right-2 flex justify-center items-center w-8 h-8 text-slate-300 hover:text-white hover:bg-neutral-500/20 rounded-lg" onClick={settings.hide}>

@@ -1,7 +1,7 @@
 import { Component } from 'solid-js'
 import { Button } from '../ui/Button'
 import { DiscordIcon, GitHubIcon, LinkIcon } from '../Icons'
-import { shell } from '@tauri-apps/api'
+import { Shell } from '~/lib/shell'
 
 const links = {
   home: 'https://pengu.lol',
@@ -15,9 +15,9 @@ export const TabAbout: Component = () => {
       <div class="flex flex-col space-y-4">
         <p class="text-base font-semibold leading-none text-neutral-300">Pengu Loader v{window.appVersion}</p>
         <div class="flex items-center space-x-4 text-neutral-200">
-          <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => shell.open(links.home)}><LinkIcon size={16} />pengu.lol</Button>
-          <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => shell.open(links.discord)}><DiscordIcon size={16} /> Discord</Button>
-          <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => shell.open(links.github)}><GitHubIcon size={16} /> GitHub</Button>
+          <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => Shell.openLink(links.home)}><LinkIcon size={16} />pengu.lol</Button>
+          <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => Shell.openLink(links.discord)}><DiscordIcon size={16} /> Discord</Button>
+          <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => Shell.openLink(links.github)}><GitHubIcon size={16} /> GitHub</Button>
         </div>
       </div>
     </div>

@@ -1,75 +1,36 @@
-import { invoke } from '@tauri-apps/api'
-import { Config } from './config'
-import { LeagueClient } from './league-client'
+import { pengu, ActivationMode, type ActivationResult } from './pengu'
 
-export enum ActivationMode {
-  Universal = 0,
-  Targeted,
-  OnDemand,
-}
+export { ActivationMode }
 
-export const CoreModule = new class {
+/**
+ * Activation surface — installs / uninstalls the core module via the host's
+ * mode-specific {@link IActivationAction}. The hub doesn't know whether the
+ * action is IFEO, dwrite-copy, or insert_dylib; that's a config + platform
+ * choice handled in C#.
+ */
+export const CoreModule = {
+  /** True if `core.dll` / `core.dylib` is resolvable next to the host exe. */
+  exists(): Promise<boolean> {
+    return pengu.activation.coreExists()
+  },
 
-  private useSymlink(): boolean {
-    return Config.get('app', 'activation_mode')
-      === ActivationMode.Targeted
-  }
-
-  /**
-   * Check League dir is required or not.
-   * Symlink mode must have it to activate.
-   */
-  async checkLeagueDir(): Promise<boolean> {
-    if (this.useSymlink()) {
-      const leagueDir = Config.get('app', 'league_dir')
-      if (!await LeagueClient.validateDir(leagueDir)) {
-        return false
-      }
-    }
-    return true
-  }
+  /** Whether the current activation mode is engaged. */
+  isActivated(): Promise<boolean> {
+    return pengu.activation.isActive()
+  },
 
   /**
-   * Check if the core module exists or not.
+   * Toggle activation. Returns a typed result with optional error / stage
+   * strings — replaces the v1.1.6/Tauri "non-empty error string means failure"
+   * convention. Caller pairs this with a follow-up `isActivated()` check if
+   * the new state needs to be reflected in UI immediately.
    */
-  async exists(): Promise<boolean> {
-    return await invoke<boolean>('plugin:config|core_exists')
-  }
-
-  /**
-   * Check if the core module is activated or not.
-   */
-  async isActivated(): Promise<boolean> {
-    if (window.isMac) {
-      return await invoke<boolean>('plugin:macos|cmd_is_active')
-    }
-    return await invoke<boolean>('plugin:windows|core_is_activated', {
-      symlink: this.useSymlink()
-    })
-  }
-
-  /**
-   * Perform activation.
-   * @returns A boolean that indicates the new active state,
-   *    the action is successful when error message is empty.
-   */
-  async doActivate(active: boolean): Promise<{ error: string, activated: boolean }> {
-    let error = ''
-
-    if (window.isMac) {
-      await invoke('plugin:macos|cmd_set_active', {
-        active: active,
-      })
-    } else {
-      error = await invoke<string>('plugin:windows|core_do_activate', {
-        active: active,
-        symlink: this.useSymlink(),
-      })
-    }
-
+  async doActivate(active: boolean): Promise<{ activated: boolean; error: string }> {
+    const result: ActivationResult = await pengu.activation.setActive(active)
+    const activated = await pengu.activation.isActive()
     return {
-      error: error,
-      activated: await this.isActivated(),
+      activated,
+      error: result.ok ? '' : (result.error ?? 'Activation failed'),
     }
-  }
+  },
 }

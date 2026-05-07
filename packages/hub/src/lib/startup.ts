@@ -1,15 +1,12 @@
-import { invoke } from '@tauri-apps/api'
+import { pengu } from './pengu'
 
-export const Startup = new class {
+/** Auto-launch on user login. HKCU\...\Run on Windows, LaunchAgent on macOS. */
+export const Startup = {
+  isEnabled() {
+    return pengu.host.startupGetEnabled()
+  },
 
-  async isEnabled() {
-    return await invoke<boolean>('plugin:startup|is_enabled')
-  }
-
-  async setEnable(enable: boolean) {
-    await invoke<boolean>('plugin:startup|set_enable', {
-      enable: enable
-    })
-  }
-
+  setEnable(enable: boolean) {
+    return pengu.host.startupSetEnabled(enable)
+  },
 }

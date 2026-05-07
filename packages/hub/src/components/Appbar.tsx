@@ -1,9 +1,9 @@
 import { Component, createSignal, JSX, onMount, Show, splitProps } from 'solid-js'
-import { appWindow } from '@tauri-apps/api/window'
 import { twMerge } from 'tailwind-merge'
 import { SettingsIcon, StoreIcon } from './Icons'
 import { useRoot } from '../lib/root'
 import { useTippy } from '../lib/utils'
+import { pengu } from '../lib/pengu'
 import icon from '../assets/icon-sm.png'
 
 const Command: Component<JSX.HTMLAttributes<HTMLSpanElement>> = (props) => {
@@ -21,26 +21,26 @@ export const Appbar: Component<{
 }> = (props) => {
 
   const { settings, setStore } = useRoot()
-  const [focus, setFocus] = createSignal(true)
+  // Focus state via standard DOM events. WebView2 fills the entire window
+  // client area, so window focus and DOM focus are equivalent — no host
+  // bridge call needed.
+  const [focus, setFocus] = createSignal(document.hasFocus())
 
-  const minimize = () => appWindow.minimize()
-  const close = () => {
-    if (window.isMac) {
-      appWindow.hide()
-    } else {
-      appWindow.close()
-    }
-  }
+  const minimize = () => pengu.host.minimize()
+  // Mode-conditional close behavior is handled host-side in BorderlessWindow's
+  // WndProc (Universal -> exit, OnDemand -> hide-to-tray). Hub just posts close.
+  const close = () => pengu.host.close()
 
-  onMount(async () => {
-    setFocus(await appWindow.isFocused())
-    appWindow.onFocusChanged(e => setFocus(e.payload))
+  onMount(() => {
+    const onFocus = () => setFocus(true)
+    const onBlur  = () => setFocus(false)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('blur',  onBlur)
   })
 
   return (
     <div
-      data-tauri-drag-region
-      class="flex items-center justify-between h-10 aria-busy:bg-neutral-700 aria-busy:opacity-85"
+      class="app-drag flex items-center justify-between h-10 aria-busy:bg-neutral-700 aria-busy:opacity-85"
       aria-busy={!focus()}
     >
 

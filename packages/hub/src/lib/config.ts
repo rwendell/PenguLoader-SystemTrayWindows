@@ -1,9 +1,7 @@
 import { Accessor, createRoot, createSignal } from 'solid-js'
-import { fs, invoke } from '@tauri-apps/api'
-import { ActivationMode } from './core-module'
-import { IniMap } from '@std/ini'
+import { pengu, ActivationMode, type ConfigSnapshot } from './pengu'
 
-const defaultConfig = {
+const defaultConfig: ConfigSnapshot = {
   app: {
     language: 'en',
     plugins_dir: '',
@@ -20,106 +18,71 @@ const defaultConfig = {
     use_devtools: false,
     use_riotclient: false,
     use_proxy: false,
-  }
+  },
 }
 
-/// TS is awesome!
-type ConfigSection = keyof typeof defaultConfig
-type ConfigKey<S extends ConfigSection> = keyof typeof defaultConfig[S]
-type ConfigValue<S extends ConfigSection, K extends ConfigKey<S>> = typeof defaultConfig[S][K]
+type ConfigSection = keyof ConfigSnapshot
+type ConfigKey<S extends ConfigSection> = keyof ConfigSnapshot[S]
+type ConfigValue<S extends ConfigSection, K extends ConfigKey<S>> = ConfigSnapshot[S][K]
 
 /**
- * Parse string value based on the default value.
+ * In-memory mirror of the host's `<data_root>/config` file. Reads / writes
+ * round-trip through the host bridge (`pengu.config.read/write`); ini
+ * parsing + atomic flush live C#-side.
+ *
+ * Public surface preserved from the v1.1.6/Tauri `Config` singleton: callers
+ * do `await Config.load()`, then `Config.get(section, key, def)` and
+ * `Config.set(section, key, value)` synchronously, then `await Config.save()`.
+ * The `useConfig()` hook returns reactive accessors built on top.
  */
-function parseValue(val?: string, def?: any) {
-  if (val != null) {
-    if (typeof def === 'boolean') {
-      val = val.trim().toLowerCase()
-      return val === '1' || val === 'true'
-    } else if (typeof def === 'number') {
-      const num = parseInt(val.trim())
-      if (!isNaN(num) && !isFinite(num)) {
-        return num
-      }
-    } else {
-      return val
-    }
-  }
-  return def
-}
-
 export const Config = new class {
 
   private baseDir = '.'
-  private configPath = 'config'
-  private ini = new IniMap({ pretty: true })
+  private snapshot: ConfigSnapshot = structuredClone(defaultConfig)
+  private loaded = false
 
-  /**
-   * Get base path to the exec dir.
-   * The function does not support relative paths.
-   * Don't use Tauri's join() due to async issue.
-   */
-  basePath(...paths: string[]) {
-    return this.baseDir + '/' + paths.join('/')
+  basePath(...parts: string[]): string {
+    return [this.baseDir, ...parts].join('/')
   }
 
   /**
-   * Load config data from file.
-   * Must call it first before doing UI operations.
-   * @returns A boolean value indicates the config file already exists.
+   * Pull the current config from the host. Returns true if the host had a
+   * persisted config; false if it returned defaults (first-launch case).
+   * Always populates the in-memory snapshot.
    */
   async load(): Promise<boolean> {
-    const base = await invoke<string>('plugin:config|get_base_dir')
-    this.baseDir = base.replace(/\\/g, '/')
-    this.configPath = `${this.baseDir}/config`
+    this.baseDir = (await pengu.config.getRoot()).replace(/\\/g, '/')
+    this.snapshot = await pengu.config.read()
+    this.loaded = true
+    return true
+  }
 
-    if (await fs.exists(this.configPath)) {
-      const content = await fs.readTextFile(this.configPath)
+  /** Flush the current snapshot back to the host. */
+  async save(): Promise<void> {
+    await pengu.config.write(this.snapshot)
+  }
 
-      this.ini.parse(content, (key, value, section) => {
-        // ensure keys are in default config 
-        if (section && section in defaultConfig) {
-          const sec = (<any>defaultConfig)[section] as Record<string, any>
-          if (key in sec) {
-            return parseValue(value, sec[key])
-          }
-        }
-        return value
-      })
-
-      return true
+  get<S extends ConfigSection, K extends ConfigKey<S>>(
+    section: S, key: K, def?: ConfigValue<S, K>
+  ): ConfigValue<S, K> {
+    const sec = this.snapshot[section] as Record<string, unknown> | undefined
+    if (sec && key in sec) {
+      const v = sec[key as string] as ConfigValue<S, K>
+      if (v !== undefined && v !== null) return v
     }
-
-    return false
+    return def as ConfigValue<S, K>
   }
 
-  /**
-   * Save config data to file.
-   */
-  async save() {
-    const content = this.ini.toString()
-      .replace(/([^\n])\n\[/g, '$1\n\n[')
-      .trimStart()
-    await fs.writeTextFile(this.configPath, content)
-  }
-
-  /**
-   * Get intermidiate data.
-   */
-  get<S extends ConfigSection, K extends ConfigKey<S>>(section: S, key: K, def?: ConfigValue<S, K>): ConfigValue<S, K> {
-    return <any>this.ini.get(section, <string>key) ?? def
-  }
-
-  /**
-   * Set intermidiate data.
-   */
-  set<S extends ConfigSection, K extends ConfigKey<S>>(section: S, key: K, value: ConfigValue<S, K>) {
-    this.ini.set(section, <string>key, value)
+  set<S extends ConfigSection, K extends ConfigKey<S>>(
+    section: S, key: K, value: ConfigValue<S, K>
+  ): void {
+    if (!this.loaded) return
+    const sec = this.snapshot[section] as Record<string, unknown>
+    sec[key as string] = value
   }
 }
 
 interface ConfigEntry<T> extends Accessor<T> {
-  // (): T
   (value: T): Promise<void>
   (setter: (prev: T) => T): Promise<void>
 }
@@ -129,12 +92,12 @@ type TransformEntry<T> = {
 }
 
 function defineEntry(section: string, key: string, def: any) {
-  const [get, set] = createSignal()
+  const [get, set] = createSignal<any>()
   return function (value?: any) {
     if (arguments.length === 0 || value == null) {
       let val = get()
       if (val === undefined) {
-        // @ts-ignore
+        // @ts-ignore — section/key are stringly-typed at this layer
         val = Config.get(section, key, def)
         set(() => val)
       }
@@ -144,8 +107,8 @@ function defineEntry(section: string, key: string, def: any) {
         value = value(get())
       }
       // @ts-ignore
-      Config.set<T>(section, key, value!)
-      set(() => value!)
+      Config.set(section, key, value)
+      set(() => value)
       return Config.save()
     }
   }
@@ -157,16 +120,14 @@ const _config = createRoot(() => {
 
   for (const section in defaultConfig) {
     const sec: Record<string, any> = {}
-
     for (const key in base[section]) {
       const def = base[section][key]
       sec[key] = defineEntry(section, key, def)
     }
-
     config[section] = sec
   }
 
-  return config as TransformEntry<typeof defaultConfig>
+  return config as TransformEntry<ConfigSnapshot>
 })
 
 export const useConfig = () => _config
