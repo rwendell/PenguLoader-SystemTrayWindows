@@ -66,9 +66,9 @@ jobs:
           run_install: |
             - recursive: true
 
-      - name: Build preload plugins
+      - name: Build preload script
         run: |
-          cd plugins
+          cd packages/preload
           pnpm build
 
       - name: Build core (windows)
