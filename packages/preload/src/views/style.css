@@ -4,7 +4,7 @@ body {
 
 #pengu-root {
   font-size: .875rem;
-  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: var(--font-body);
 }
 
 div[id^=index_loading_div] {
@@ -29,7 +29,7 @@ div[id^=index_loading_div]:after {
   margin-top: 32px;
   content: "Pengu-Powered";
   color: #e2e1e1;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 1rem;
   text-transform: uppercase;
 }
