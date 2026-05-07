@@ -73,28 +73,28 @@ jobs:
 
       - name: Build core (windows)
         if: runner.os == 'Windows'
-        run: msbuild.exe pengu.sln -t:build -p:Configuration=Release -p:Platform=x64
+        run: msbuild.exe pengu.slnx -t:build -p:Configuration=Release -p:Platform=x64
 
       - name: Build core (macos)
         if: runner.os == 'macOS'
         run: make release
 
-      - name: Build loader
+      - name: Build app-hub
         uses: tauri-apps/tauri-action@v0
         with:
-          projectPath: "loader"
+          projectPath: "packages/hub"
           args: ${{ matrix.tauri_args }}
 
-      - name: Move loader output (windows)
+      - name: Move app-hub output (windows)
         if: runner.os == 'Windows'
         run: |
-          cp "loader/src-tauri/target/release/Pengu Loader.exe" bin/
+          cp "packages/hub/src-tauri/target/release/Pengu Loader.exe" bin/
 
-      - name: Move loader output (macos)
+      - name: Move app-hub output (macos)
         if: runner.os == 'macOS'
         run: |
-          cp -r "loader/src-tauri/target/universal-apple-darwin/release/bundle/macos/Pengu Loader.app" bin/
-          cp "loader/src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.dmg bin/
+          cp -r "packages/hub/src-tauri/target/universal-apple-darwin/release/bundle/macos/Pengu Loader.app" bin/
+          cp "packages/hub/src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.dmg bin/
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
