@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Pengu.Activation;
+using Pengu.Config;
 
 namespace Pengu;
 
@@ -9,9 +11,10 @@ namespace Pengu;
 /// it. The bridge dispatcher (emitted by Pengu.Gen) routes through this
 /// context for all primitive and record (de)serialization.
 ///
-/// <para>Add new types alongside the API surface they belong to. Records that
-/// only ever appear as method return types still need an entry; same for
-/// argument records.</para>
+/// <para>Naming: global default is <see cref="JsonKnownNamingPolicy.CamelCase"/>.
+/// Records whose property names mirror an external file format (e.g.
+/// <see cref="ConfigApp"/> matching ini key names) override per-property via
+/// <see cref="JsonPropertyNameAttribute"/>.</para>
 /// </summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -23,4 +26,8 @@ namespace Pengu;
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(double))]
 [JsonSerializable(typeof(byte))]
+[JsonSerializable(typeof(ActivationMode))]
+[JsonSerializable(typeof(ConfigSnapshot))]
+[JsonSerializable(typeof(ConfigApp))]
+[JsonSerializable(typeof(ConfigClient))]
 public partial class PenguJsonContext : JsonSerializerContext;

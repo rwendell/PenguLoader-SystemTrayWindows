@@ -1,4 +1,5 @@
 using Pengu.Bridge;
+using Pengu.Config;
 using Pengu.Logging;
 
 namespace Pengu;
@@ -41,11 +42,18 @@ public static class AppHost
         var url = AppEnv.DevUrl ?? "app://hub/";
         Log.Info("Main window navigating to {0}", url);
 
-        // First-cut bridge surface: just the ping smoke-test. Real APIs land in
-        // subsequent commits as activation / config / plugins / host / i18n.
+        // Process-wide config store. Owns the on-disk config file and serves
+        // the typed snapshot to bridge callers (and any C# subsystem that
+        // needs config state — activation mode, plugins dir, etc.).
+        var configStore = new ConfigStore(host.DataRoot);
+        configStore.Load();
+
+        // Bridge surface registered with every window opened by the host.
+        // PingApi is the diagnostic round-trip; ConfigApi is A.1.
         var handlers = new List<IJsInteropDispatcher>
         {
             new Api.PingApi(),
+            new Api.ConfigApi(configStore),
         };
 
         try
