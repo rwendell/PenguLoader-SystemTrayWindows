@@ -193,23 +193,43 @@ static void LoadPlugins(V8Object *window)
     window->set(&u"Pengu"_s, pengu, V8_PROPERTY_ATTRIBUTE_READONLY);
 }
 
-static void ExecutePreloadScript(cef_frame_t *frame)
+// Execute the preload script synchronously in the main-frame V8 context.
+//
+// Uses cef_v8context_t::eval rather than cef_frame_t::execute_java_script —
+// the former runs synchronously inside OnContextCreated, the latter posts the
+// script as a renderer task that may be drained after HTML parsing has begun
+// and inline classic <script> tags have already executed. Running synchronously
+// here ensures Pengu's RCP wrap and global exposures are in place before any
+// of LCUX's own scripts can dispatch riotPlugin.announce:* events.
+//
+// Note: top-level statements inside the preload IIFE run synchronously, but
+// any dynamic import() calls inside still resolve asynchronously — that's the
+// remaining gap load-hooks.ts papers over for late-load/DOMContentLoaded
+// listener registrations.
+static void ExecutePreloadScript(cef_v8context_t *context)
 {
+    cef_v8value_t *retval = nullptr;
+    cef_v8exception_t *exception = nullptr;
+
 #ifdef _DEBUG
     void *buffer; size_t length;
-    path preload_path = config::loader_dir() / "../plugins/dist/preload.js";
+    path preload_path = config::loader_dir() / "../packages/preload/dist/preload.js";
 
     if (file::read_file(preload_path, &buffer, &length))
     {
         CefStr script((const char *)buffer, length);
-        frame->execute_java_script(frame, &script, &u"https://plugins/@/preload"_s, 1);
+        context->eval(context, &script,
+            &u"https://plugins/@/preload"_s, 1, &retval, &exception);
         free(buffer);
     }
 #else
-#   include "../../plugins/dist/preload.g.h"
+#   include "../../packages/preload/dist/preload.g.h"
     CefStr script{ (const char *)_preload_script, _preload_script_size };
-    frame->execute_java_script(frame, &script, nullptr, 1);
+    context->eval(context, &script, nullptr, 1, &retval, &exception);
 #endif
+
+    if (retval)    retval->base.release(&retval->base);
+    if (exception) exception->base.release(&exception->base);
 }
 
 static decltype(cef_render_process_handler_t::on_context_created) OnContextCreated;
@@ -235,7 +255,7 @@ static void CEF_CALLBACK Hooked_OnContextCreated(
         ExposeOsObject(reinterpret_cast<V8Object *>(window));
         ExposeNativeFunctions(reinterpret_cast<V8Object *>(window));
         LoadPlugins(reinterpret_cast<V8Object *>(window));
-        ExecutePreloadScript(frame);
+        ExecutePreloadScript(context);
     }
 
     OnContextCreated(self, browser, frame, context);

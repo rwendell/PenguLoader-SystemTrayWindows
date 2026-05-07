@@ -125,8 +125,8 @@ window.Effect = {
   setTheme(theme) {
     if (theme === 'light')
       native.SetWindowTheme(false)
-    else (theme === 'dark')
-    native.SetWindowTheme(true)
+    else if (theme === 'dark')
+      native.SetWindowTheme(true)
   },
 
 }

@@ -72,14 +72,31 @@ async function loadPlugin(entry: string) {
   }
 }
 
-// Load all plugins asynchronously
-const waitable = Promise.all(
-  plugins.map(loadPlugin)
-);
+// Load all plugins asynchronously. loadPlugin swallows its own errors, so
+// Promise.all here only "stalls" if a plugin hangs — top-level await that
+// never resolves, infinite loop in init, unawaited fetch to a dead host, etc.
+//
+// Race that against a hard timeout so a single bad plugin can't deadlock
+// rcp-fe-common-libs (and the 35 RCP plugins that depend on it) indefinitely.
+// Plugins that finish after the timeout still complete in the background;
+// they just don't gate the rest of LCUX from initializing. The trade-off:
+// late-finishing plugins miss preInit/postInit hooks for RCP plugins that
+// already passed those phases — same gotcha that exists today for any
+// subscribe-after-announce.
+const PLUGIN_LOAD_TIMEOUT_MS = 15_000;
+
+const allLoaded = Promise.all(plugins.map(loadPlugin));
+const timedOut = new Promise<void>(resolve => setTimeout(() => {
+  console.warn('%c Pengu ', 'background: #183461; color: #fff',
+    `plugin load exceeded ${PLUGIN_LOAD_TIMEOUT_MS}ms — releasing rcp-fe-common-libs gate. Slow plugins continue loading in the background.`);
+  resolve();
+}, PLUGIN_LOAD_TIMEOUT_MS));
+
+const waitable = Promise.race([allLoaded, timedOut]);
 
 // Listen for the first rcp, it's also the first listener
 rcp.preInit('rcp-fe-common-libs', async function () {
-  // Wait for plugins load
+  // Wait for plugins load (or timeout — see above)
   await waitable;
 });
 
