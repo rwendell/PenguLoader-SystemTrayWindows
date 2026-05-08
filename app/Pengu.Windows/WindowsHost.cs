@@ -177,13 +177,12 @@ internal sealed class WindowsHost : IHost
 
     public void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus)
     {
-        // C.2 -> registry.Register(new IfeoAction(ExeDirectory, bus));
+        // Universal mode: IFEO Debugger value via cmd /c reg add (runas).
+        registry.Register(new Pengu.Windows.Activation.IfeoAction(ExeDirectory));
+
         // C.3 -> registry.Register(new CopyDllAction(ExeDirectory, config, bus));
         //        + start RcsDaemon listening for OnDemand sessions.
-        // C.1 leaves the registry empty; ActivationApi surfaces a typed
-        // "no action registered for mode X" failure, hub UI shows the
-        // error overlay rather than crashing.
-        _ = registry; _ = config; _ = bus;
+        _ = config; _ = bus;
     }
 
     private HWND MainHandle => _mainWindow?.Handle ?? HWND.NULL;
