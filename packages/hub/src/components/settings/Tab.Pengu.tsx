@@ -1,7 +1,6 @@
 import { Component, createSignal, onMount, Show } from 'solid-js'
 import { Config, useConfig } from '~/lib/config'
 import { CheckOption, OptionSet, RadioOption } from './templates'
-import { ActivationMode, CoreModule } from '~/lib/core-module'
 import { Startup } from '~/lib/startup'
 import { pengu } from '~/lib/pengu'
 
@@ -41,15 +40,6 @@ export const TabPengu: Component = () => {
     }
   }
 
-  const setActivationMode = async (mode: ActivationMode) => {
-    if (await CoreModule.isActivated()) {
-      // TODO(overlay): replace browser alert with the in-app message overlay.
-      alert('Please deactivate Pengu before changing the activation mode.')
-    } else {
-      await app.activation_mode(mode)
-    }
-  }
-
   return (
     <div class="space-y-4">
 
@@ -67,17 +57,16 @@ export const TabPengu: Component = () => {
 
       <OptionSet name="Activation Mode">
         <Show when={!window.isMac}>
+          {/* Windows: Universal (IFEO) only. OnDemand was considered as a
+              second mode but dropped — IFEO is strictly more reliable on
+              Windows (no daemon required, survives reboots, kernel-level
+              redirect). The radio stays as a single visible option for
+              clarity rather than collapsing to a label. */}
           <RadioOption
             caption="Universal"
             message="Apply to all League Clients via IFEO. Requires UAC once at install; survives across launches."
-            checked={app.activation_mode() === ActivationMode.Universal}
-            onClick={() => setActivationMode(ActivationMode.Universal)}
-          />
-          <RadioOption
-            caption="On-demand"
-            message="Apply only to a League Client launched from the Riot Client. No admin needed; Pengu must keep running in the background."
-            checked={app.activation_mode() === ActivationMode.OnDemand}
-            onClick={() => setActivationMode(ActivationMode.OnDemand)}
+            checked
+            disabled
           />
         </Show>
         <Show when={window.isMac}>

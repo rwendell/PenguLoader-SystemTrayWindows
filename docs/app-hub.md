@@ -12,7 +12,7 @@ This document covers the from-scratch .NET 10 host that takes over the loader UI
 - Replace `packages/hub/src-tauri/` with a from-scratch .NET 10 host.
 - Cross-platform: WebView2 on Windows, WKWebView on macOS. Both NativeAOT.
 - Reuse the existing SolidJS UI (with bridge calls migrated from `@tauri-apps/api`).
-- Mirror the activation, plugin discovery, daemon, and tray behaviors of the Rust loader, with the redesigns called out below.
+- Mirror the activation, plugin discovery, daemon (macOS only), and tray (macOS only) behaviors of the Rust loader, with the redesigns called out below.
 
 **Out of scope:**
 - A cross-platform native dialog framework (overlays in the hub UI replace `dialog.message` etc.).
@@ -373,9 +373,17 @@ Subscribed via `window.addEventListener('activation:stateChanged', e => ...)`. R
 | Mode | Windows | macOS |
 | --- | --- | --- |
 | Universal | IFEO write to `HKLM\...\Image File Execution Options\LeagueClientUx.exe\Debugger` | (not applicable) |
-| OnDemand | Daemon copies `core.dll` → `<LoL>\dwrite.dll` on session create; deletes on session delete | Daemon `insert_dylib` patches `libEGL.dylib` to load `core.dylib`; restores backup on session delete |
+| OnDemand | (not implemented — see below) | Daemon `insert_dylib` patches `libEGL.dylib` to load `core.dylib`; restores backup on session delete |
 
 **Targeted (symlink) is dropped.** Universal already covers the "set and forget" case better (registry, no Developer Mode dance, no `version.dll` proxy). The `Targeted = 1` enum value is reserved in the wire format but never selectable.
+
+**OnDemand on Windows is dropped (2026-05-08).** Originally planned as a 1:1 mirror of macOS (daemon copies `core.dll` → `<LoL>\dwrite.dll` on session create), but the costs outweighed the benefits:
+- IFEO is strictly more reliable on Windows (kernel-side image-load redirect, no daemon required, survives reboots).
+- The "macOS code parity for cross-platform testing" argument doesn't hold — the action implementations are entirely platform-specific (`InsertDylibAction` on Mac vs `CopyDllAction` on Windows); only the WAMP daemon shell is shared, and that's small.
+- "Copy our DLL into the LoL folder" is an AV-relevant pattern; IFEO via `reg.exe` shells through a system-trusted binary and is safer.
+- Keeps the Windows tray + HKCU Run startup off the critical path (no daemon to keep alive on login).
+
+The `OnDemand = 2` enum value stays defined (used by macOS); `pengu.activation.listModes()` reports `available: false` for OnDemand on Windows automatically since the registry has no action registered for it.
 
 ### 9.2 `IActivationAction`
 
@@ -413,19 +421,9 @@ Process.Start(new ProcessStartInfo {
 
 Reads use `Microsoft.Win32.RegistryKey.OpenSubKey(KEY_READ)` — read APIs don't trigger AV heuristics.
 
-### 9.4 OnDemand on Windows
+### 9.4 OnDemand on Windows — dropped
 
-When the WAMP daemon sees a `Create` event for `productId == "league_of_legends"`:
-
-1. Resolve LoL install dir from the `LcuxSession.InstallPath` carried in the WAMP session payload (RCS includes the install path in the announcement). Fall back to `LeagueDiscovery.FindInstall()` (which walks `RiotClientInstalls.json`) if the WAMP payload didn't include it. If both fail, the action returns `ActivationResult.Fail(stage: "ResolveInstallDir")` and emits `activation:stateChanged { active: false }`.
-2. `File.Copy(<base_dir>/core.dll, <LoL>/dwrite.dll)`. If `dwrite.dll` already exists and isn't ours (byte/hash mismatch), back it up to `dwrite.dll.bak` first.
-3. Emit `activation:stateChanged { active: true }`.
-
-The C++ core's `dllproxy.cc` already exports the real `dwrite.dll` symbols (`DWriteCreateFactory` etc.) and forwards them to `C:\Windows\System32\dwrite.dll`. From LoL's perspective, our DLL behaves indistinguishably from the system one — except it also runs `HookBrowserProcess()` on load.
-
-On WAMP `Delete`: `File.Delete(<LoL>/dwrite.dll)`. If we made a backup, restore it.
-
-This requires no admin (LoL folder is user-writable in default installs), no registry, no symlink. Maps 1:1 to macOS `insert_dylib`.
+Originally specified here as a CopyDllAction + RcsDaemon pair, mirroring macOS. Decision reversed (2026-05-08): Windows ships only Universal mode. See §9.1 above for the reasoning. The `OnDemand = 2` enum value remains defined and `pengu.activation.listModes()` reports `available: false` for it on Windows automatically (registry has no action registered → registry-driven availability check returns false). If a future build wants to revisit Windows OnDemand, the `IActivationAction` interface and `ActivationActionRegistry` are both already in place — register a `CopyDllAction` and the bridge surface picks it up without further changes.
 
 ### 9.5 OnDemand on macOS — `insert_dylib` ported to C#
 
@@ -469,38 +467,33 @@ The WebSocket connection uses `System.Net.WebSockets.ClientWebSocket` with a cus
 
 ## 10. Tray
 
-The tray icon is **always visible while the host process runs**, both modes. Close-button behavior is mode-conditional:
+**Windows: tray dropped (2026-05-08)** alongside the OnDemand decision (§9.1). Universal mode doesn't need a long-running process — the hub opens, the user toggles, the hub closes. There's no daemon to keep alive, no OnDemand-armed state to surface, so the tray's primary job (keep the process resident with a way to bring it back) is moot. We could ship a "minimize to tray" convenience but the Win32 surface (~400 LOC of `Shell_NotifyIcon` + popup menu + dark-mode glue) isn't worth it for that alone.
 
-| Mode | Close button | Tray Quit |
+**macOS: tray required.** OnDemand is the only mode and the daemon must keep running for the activation to fire when LCUX launches. The tray is how users keep that process alive after closing the hub window.
+
+| Platform | Tray | Close-button behavior |
 | --- | --- | --- |
-| Universal (IFEO) | exits the process | (n/a) |
-| OnDemand | hides hub window via `SW_HIDE` (Win) / `[NSWindow orderOut:]` (Mac); daemon keeps running | force-exits |
+| Windows | not shipped | exits process |
+| macOS | `NSStatusItem` + `NSMenu` | hides window via `[NSWindow orderOut:]`; daemon keeps running |
 
-macOS is OnDemand-only by design, so close always hides to tray.
-
-**Menu items:**
+**macOS tray menu items:**
 
 ```
 Pengu Loader v1.2.0          (disabled, version header)
 ─────────────────────────────
 Open hub                     (default — Enter activates)
 ─────────────────────────────
-Activated                    (checkmark = current state; click toggles via current mode action)
+Activated                    (checkmark = current state; click toggles via InsertDylibAction)
 ─────────────────────────────
 Open plugins folder
-Reveal core.dll
+Reveal core.dylib
 ─────────────────────────────
 Quit
 ```
 
-Click on the tray icon (left/double on Win, single on Mac) opens the hub. Tooltip dynamically reflects state: `"Pengu — On (Universal)"`, `"Pengu — Watching for League (OnDemand)"`, `"Pengu — Off"`.
+Tooltip reflects state: `"Pengu — Watching for League"`, `"Pengu — Off"`.
 
-**Implementation:**
-
-- Windows: `Shell_NotifyIcon` with a message-only hidden HWND to receive callbacks. `TrackPopupMenu` for the menu. Dark menu via the undocumented `uxtheme!#135 SetPreferredAppMode(AllowDark)` + `#136 FlushMenuThemes()` ordinals.
-- macOS: `NSStatusItem` + `NSMenu`.
-
-No balloon notifications in v1 — would be chatty.
+**Implementation (macOS only)** — lands in milestone E. `NSStatusItem` + `NSMenu` via the AppKit bindings shipped with the .NET 10 macOS workload. No balloon notifications.
 
 ---
 
@@ -580,14 +573,14 @@ We do not ship a `.portable` marker file or `PENGU_DATA_DIR` env var. Drops the 
 
 ## 12. Auto-startup
 
-OnDemand requires the host process to be running when the user starts LoL, so auto-startup matters.
+OnDemand requires the host process to be running when the user starts LoL, so auto-startup matters there. Windows runs Universal-only and doesn't need launch-on-login.
 
-| Platform | Mechanism |
-| --- | --- |
-| Windows | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Pengu = "<exe>"` |
-| macOS | `~/Library/LaunchAgents/com.pengu.lol.plist` |
+| Platform | Mechanism | Default |
+| --- | --- | --- |
+| Windows | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Pengu = "<exe>"` | off, hub UI doesn't surface the toggle |
+| macOS | `~/Library/LaunchAgents/com.pengu.lol.plist` | toggleable in Settings → Pengu |
 
-**HKCU only on Windows** — never `HKLM`. Per-user, no admin, easy toggle. `host.startupGetEnabled` reads via `Microsoft.Win32.Registry`; `host.startupSetEnabled` writes via the same API (no AV concerns for HKCU writes). The macOS LaunchAgent plist toggles `RunAtLoad`.
+The Windows `StartupRegistry` helper and `host.startupGetEnabled` / `host.startupSetEnabled` API stay in place (small surface, useful for the macOS LaunchAgent equivalent and harmless on Windows where the hub UI doesn't expose the toggle). HKCU only on Windows — never HKLM. Per-user, no admin, easy toggle.
 
 ---
 

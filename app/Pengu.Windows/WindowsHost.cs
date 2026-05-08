@@ -191,10 +191,12 @@ internal sealed class WindowsHost : IHost
     public void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus)
     {
         // Universal mode: IFEO Debugger value via cmd /c reg add (runas).
+        // OnDemand is intentionally not registered on Windows — IFEO is
+        // strictly more reliable here (kernel-side image-load redirect, no
+        // daemon required, survives reboots). OnDemand stays a macOS-only
+        // mode (see Pengu.MacOS in milestone E).
         registry.Register(new Pengu.Windows.Activation.IfeoAction(ExeDirectory));
 
-        // C.3 -> registry.Register(new CopyDllAction(ExeDirectory, config, bus));
-        //        + start RcsDaemon listening for OnDemand sessions.
         _ = config; _ = bus;
     }
 
