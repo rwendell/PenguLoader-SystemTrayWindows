@@ -3,6 +3,7 @@ using Pengu.Activation;
 using Pengu.Api;
 using Pengu.Config;
 using Pengu.Plugins;
+using Pengu.State;
 
 namespace Pengu;
 
@@ -43,4 +44,5 @@ namespace Pengu;
 [JsonSerializable(typeof(HostInfo))]
 [JsonSerializable(typeof(DirEntry))]
 [JsonSerializable(typeof(DirEntry[]))]
+[JsonSerializable(typeof(WindowState))]
 public partial class PenguJsonContext : JsonSerializerContext;

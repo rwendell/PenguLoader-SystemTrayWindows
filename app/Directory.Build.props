@@ -18,8 +18,10 @@
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <OptimizationPreference>Size</OptimizationPreference>
     <TrimMode>full</TrimMode>
     <StripSymbols>true</StripSymbols>
+    <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
   </PropertyGroup>
 
 </Project>

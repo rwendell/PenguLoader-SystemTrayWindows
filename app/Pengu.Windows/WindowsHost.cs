@@ -6,6 +6,7 @@ using Pengu.Bridge;
 using Pengu.Config;
 using Pengu.Logging;
 using Pengu.Pack;
+using Pengu.State;
 using Pengu.Windows.Browser;
 using Pengu.Windows.Native;
 using Pengu.Windows.Window;
@@ -22,6 +23,12 @@ internal sealed class WindowsHost : IHost
 {
     public string DataRoot { get; }
     public string ExeDirectory { get; }
+
+    /// <summary>Per-user state root: <c>%LOCALAPPDATA%\.pengu\</c>. Holds
+    /// per-user concerns that don't belong in the machine-wide
+    /// <see cref="DataRoot"/> — WebView2 cache, window placement, anything
+    /// else that should follow the user (not the machine).</summary>
+    public string UserDataRoot { get; }
 
     /// <summary>
     /// The borderless window currently hosting the hub UI, captured during
@@ -41,6 +48,7 @@ internal sealed class WindowsHost : IHost
     public WindowsHost()
     {
         ExeDirectory = AppContext.BaseDirectory;
+
         // %PROGRAMDATA%\.pengu\ — machine-wide so Universal mode (IFEO is
         // HKLM-scoped) sees consistent state across users. See
         // docs/app-hub.md §11.
@@ -53,6 +61,15 @@ internal sealed class WindowsHost : IHost
         // First-launch wins (creator owns the dir and can set ACLs without
         // admin); subsequent launches verify and no-op.
         ProgramDataAcl.EnsureWritableByEveryone(DataRoot);
+
+        // Per-user state lives separately under %LOCALAPPDATA%\.pengu\:
+        // WebView2 cache (cookies / IndexedDB / GPU shader cache for THIS
+        // user) plus window placement. No ACL gymnastics — each user's
+        // LocalAppData is their own.
+        UserDataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            ".pengu");
+        Directory.CreateDirectory(UserDataRoot);
     }
 
     public bool IsWebViewRuntimeAvailable() => WebView2Loader.IsRuntimeAvailable();
@@ -75,19 +92,34 @@ internal sealed class WindowsHost : IHost
     public Task InitializeBrowserEnvironmentAsync()
     {
         // WebView2 user-data folder is per-user (cookies, IndexedDB, GPU
-        // shader cache for THIS user's session). Stays in %LOCALAPPDATA%
-        // even though the rest of Pengu's data root is in %PROGRAMDATA%.
-        // Different concern from activation/plugins state.
-        var userData = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Pengu", "WebView2");
+        // shader cache for THIS user's session). Lives under
+        // %LOCALAPPDATA%\.pengu\WebView2\ alongside other per-user state
+        // (window placement, etc.) — separate from the machine-wide
+        // DataRoot in %PROGRAMDATA%\.pengu\.
+        var userData = Path.Combine(UserDataRoot, "WebView2");
         return WebView2Environment.InitializeAsync(userData);
     }
 
     public async Task OpenMainWindowAsync(string url, IReadOnlyList<IJsInteropDispatcher> bridgeHandlers, EventBus bus)
     {
-        var window = new BorderlessWindow(AppEnv.AppName, width: 940, height: 560);
+        // Restore prior placement (size + position + maximize) if we have
+        // it. First-launch falls back to centered defaults inside the window.
+        var savedState = WindowStateStore.TryLoad(WindowStatePath);
+        var window = new BorderlessWindow(AppEnv.AppName, savedState);
+
+        // Persist on close. Subscribed before InitializeBrowserAsync runs
+        // so even an early WM_DESTROY catches the save.
+        window.Closing += state =>
+        {
+            WindowStateStore.Save(WindowStatePath, state);
+        };
+
         await window.InitializeBrowserAsync().ConfigureAwait(true);
+
+        // The WebView2 controller inserts its own child HWND on top of the
+        // parent on creation; bring the resize-frame back over the top so
+        // its 8-px border catches resize-edge clicks before WebView2 does.
+        window.EnableResizeFrame();
 
         var bridge = new JsBridge(window.Browser, bus);
         foreach (var h in bridgeHandlers)
@@ -126,6 +158,8 @@ internal sealed class WindowsHost : IHost
         _mainWindow = window;
         Log.Info("Main window shown ({0} handlers registered)", bridgeHandlers.Count);
     }
+
+    private string WindowStatePath => Path.Combine(UserDataRoot, "window.json");
 
     // ---------- A.3 ----------
 
