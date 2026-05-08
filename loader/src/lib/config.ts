@@ -10,6 +10,7 @@ const defaultConfig = {
     league_dir: '',
     disabled_plugins: '',
     activation_mode: ActivationMode.Universal,
+    minimize_to_tray: false,
   },
   client: {
     use_hotkeys: true,

@@ -67,6 +67,12 @@ impl<R: Runtime> super::CustomBuild for tauri::Builder<R> {
     fn setup_platform(self) -> Self {
         self.system_tray(tray::create())
             .on_system_tray_event(tray::handle_event)
+            .on_window_event(|event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                    api.prevent_close();
+                    event.window().hide().unwrap();
+                }
+            })
             .setup(|app| {
                 initialize(app);
                 Ok(())

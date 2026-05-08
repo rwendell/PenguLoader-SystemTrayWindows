@@ -118,6 +118,15 @@ export const TabPengu: Component = () => {
         </Show>
       </OptionSet>
 
+      <OptionSet name="Window">
+        <CheckOption
+          caption="Minimize to tray"
+          message="When minimizing the app window, send it to the system tray instead of the taskbar."
+          checked={app.minimize_to_tray()}
+          onChange={app.minimize_to_tray}
+        />
+      </OptionSet>
+
     </div>
   )
 }

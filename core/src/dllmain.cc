@@ -98,7 +98,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved)
     return TRUE;
 }
 
-static void InjectThisDll(HANDLE hProcess)
+void InjectThisDll(HANDLE hProcess)
 {
     HMODULE kernel32 = GetModuleHandleA("kernel32");
     auto pVirtualAllocEx = (decltype(&VirtualAllocEx))GetProcAddress(kernel32, "VirtualAllocEx");

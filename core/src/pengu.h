@@ -418,11 +418,11 @@ namespace dialog
     bool confirm(const char *message, const char *caption);
 
 #if OS_WIN
-    static void alert(const char *message, const char *caption) {
+    inline void alert(const char *message, const char *caption) {
         MessageBoxA(NULL, message, caption,
             MB_ICONINFORMATION | MB_OK | MB_TOPMOST);
     }
-    static bool confirm(const char *message, const char *caption) {
+    inline bool confirm(const char *message, const char *caption) {
         return IDYES == MessageBoxA(NULL, message, caption,
             MB_ICONWARNING/* MB_ICONQUESTION */ | MB_YESNO | MB_TOPMOST);
     }

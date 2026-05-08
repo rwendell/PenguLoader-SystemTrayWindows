@@ -3,6 +3,7 @@ import { appWindow } from '@tauri-apps/api/window'
 import { twMerge } from 'tailwind-merge'
 import { SettingsIcon, StoreIcon } from './Icons'
 import { useRoot } from '../lib/root'
+import { useConfig } from '../lib/config'
 import { useTippy } from '../lib/utils'
 import icon from '../assets/icon-sm.png'
 
@@ -21,9 +22,16 @@ export const Appbar: Component<{
 }> = (props) => {
 
   const { settings, setStore } = useRoot()
+  const { app } = useConfig()
   const [focus, setFocus] = createSignal(true)
 
-  const minimize = () => appWindow.minimize()
+  const minimize = () => {
+    if (app.minimize_to_tray()) {
+      appWindow.hide()
+    } else {
+      appWindow.minimize()
+    }
+  }
   const close = () => {
     if (window.isMac) {
       appWindow.hide()

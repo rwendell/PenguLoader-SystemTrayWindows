@@ -7,6 +7,7 @@ use tauri::{
 
 mod mod_ifeo;
 mod mod_symlink;
+mod tray;
 mod utils;
 
 /// Enabling activation requires admin rights,
@@ -127,12 +128,20 @@ fn plugin<R: Runtime>() -> TauriPlugin<R> {
 
 impl<R: Runtime> super::CustomBuild for tauri::Builder<R> {
     fn setup_platform(self) -> Self {
-        self.setup(|app| {
-            let window = super::build_window(app);
-            utils::enable_shadow(window.hwnd().unwrap().0);
-            Ok(())
-        })
-        .plugin(plugin())
+        self.system_tray(tray::create())
+            .on_system_tray_event(tray::handle_event)
+            .on_window_event(|event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                    api.prevent_close();
+                    event.window().hide().unwrap();
+                }
+            })
+            .setup(|app| {
+                let window = super::build_window(app);
+                utils::enable_shadow(window.hwnd().unwrap().0);
+                Ok(())
+            })
+            .plugin(plugin())
     }
 }
 
