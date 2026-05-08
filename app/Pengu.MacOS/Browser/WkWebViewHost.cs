@@ -65,6 +65,18 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
             isForMainFrameOnly: false);
         ucc.AddUserScript(polyfill);
 
+        // Drag-region polyfill: WKWebView ignores `app-region: drag` CSS
+        // (WebView2-specific), so on mousedown we walk up the DOM to find an
+        // ancestor with computed app-region: drag and call
+        // pengu.host.startDragging() — host synthesizes an NSEvent and
+        // initiates a native window drag. Hub continues to use the same CSS
+        // it uses on Windows.
+        var dragShim = new WKUserScript(
+            (NSString)DragRegionPolyfill,
+            WKUserScriptInjectionTime.AtDocumentStart,
+            isForMainFrameOnly: false);
+        ucc.AddUserScript(dragShim);
+
         // DevTools (Web Inspector) on in --dev mode, off otherwise. WKWebView
         // exposes this via Configuration.Preferences.SetValueForKey since
         // the public Inspectable property is macOS 13.3+.
@@ -121,6 +133,47 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
         if (!string.IsNullOrEmpty(json))
             WebMessageReceivedAsJson?.Invoke(json);
     }
+
+    /// <summary>
+    /// Mousedown polyfill that bridges <c>.app-drag</c> regions to
+    /// <c>pengu.host.startDragging()</c>. WKWebView's CSS engine doesn't
+    /// recognize the <c>-webkit-app-region</c> property at all (it's a
+    /// WebView2/Edge-specific feature), so we can't rely on
+    /// <c>getComputedStyle</c>. Instead, key off the hub's existing
+    /// <c>.app-drag</c> class plus tag-name/role checks for interactive
+    /// children — matches the intent of the CSS rule
+    /// <c>.app-drag :where(button, a, input, [role='button'], .app-no-drag) { app-region: no-drag }</c>.
+    /// </summary>
+    private const string DragRegionPolyfill =
+        """
+        (function () {
+          function isInteractive(el) {
+            if (!el || !el.tagName) return false;
+            var t = el.tagName;
+            if (t === 'BUTTON' || t === 'A' || t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA') return true;
+            if (el.getAttribute && el.getAttribute('role') === 'button') return true;
+            if (el.classList && el.classList.contains('app-no-drag')) return true;
+            return false;
+          }
+          document.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) return;
+            var el = e.target;
+            var inDrag = false;
+            while (el && el !== document.documentElement) {
+              // If anything interactive is on the path between the click
+              // target and a drag ancestor, don't drag — the CSS no-drag
+              // override would have applied for these.
+              if (isInteractive(el)) return;
+              if (el.classList && el.classList.contains('app-drag')) { inDrag = true; break; }
+              el = el.parentElement;
+            }
+            if (!inDrag) return;
+            if (window.pengu && window.pengu.host && window.pengu.host.startDragging) {
+              window.pengu.host.startDragging();
+            }
+          }, true /* capture phase: beat WKWebView's own drag handling */);
+        })();
+        """;
 
     /// <summary>
     /// Polyfill that exposes <c>window.chrome.webview</c> on WKWebView,

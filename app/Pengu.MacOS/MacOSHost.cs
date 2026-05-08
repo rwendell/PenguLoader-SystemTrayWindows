@@ -119,7 +119,15 @@ public sealed partial class MacOSHost : IHost
 
     public void MinimizeMainWindow() => _mainWindow?.Miniaturize(_mainWindow);
 
-    public void CloseMainWindow() => _mainWindow?.PerformClose(_mainWindow);
+    public void CloseMainWindow()
+    {
+        // The hub renders its own close button (no native traffic-light since
+        // we drop .Titled). PerformClose on a borderless NSWindow beeps and
+        // bails — there's no native button to "perform" against. Skip the
+        // close lifecycle entirely and OrderOut: the daemon stays alive,
+        // LcuxWatcher keeps watching, the user can re-summon via Dock click.
+        _mainWindow?.OrderOut(_mainWindow);
+    }
 
     /// <summary>
     /// Bring the hidden main window back to front. Called from
@@ -136,10 +144,36 @@ public sealed partial class MacOSHost : IHost
 
     public void StartDragging()
     {
-        // CSS app-region: drag handles drag for the hub's own titlebar
-        // strips. Programmatic drag isn't typically needed on macOS — the
-        // window is movable-by-background already (BorderlessWindow sets
-        // MovableByWindowBackground = true).
+        var window = _mainWindow;
+        if (window is null)
+        {
+            Log.Debug("StartDragging: no main window");
+            return;
+        }
+
+        // Bridge is async, so NSApplication.CurrentEvent is stale by the time
+        // we run; synthesize a fresh NSEvent at the current cursor position.
+        // performWindowDrag uses the event for tracking-start coordinates and
+        // timestamp — a synthesized event works as long as it's recent.
+        var screenLoc = NSEvent.CurrentMouseLocation;
+        var winLoc    = window.ConvertPointFromScreen(screenLoc);
+        var ev = NSEvent.MouseEvent(
+            NSEventType.LeftMouseDown,
+            winLoc,
+            0,
+            NSDate.Now.SecondsSinceReferenceDate,
+            window.WindowNumber,
+            null,
+            0, 1, 0.0f);
+
+        if (ev is null)
+        {
+            Log.Warn("StartDragging: NSEvent.MouseEvent returned null (winLoc={0})", winLoc);
+            return;
+        }
+
+        Log.Debug("StartDragging: PerformWindowDrag at winLoc={0} (screen={1})", winLoc, screenLoc);
+        window.PerformWindowDrag(ev);
     }
 
     public Task<string?> PickFolderAsync(string? initialPath)

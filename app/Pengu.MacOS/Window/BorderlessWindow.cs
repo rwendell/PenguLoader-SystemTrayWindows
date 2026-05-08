@@ -55,6 +55,15 @@ internal sealed class BorderlessWindow : NSWindow
         Delegate = new BorderlessWindowDelegate();
     }
 
+    // NSWindow defaults canBecomeKeyWindow/Main to NO when the styleMask lacks
+    // .Titled — which means MakeKeyAndOrderFront only orders front, never
+    // makes us key. Without key status the WKWebView gets no mouse tracking
+    // (hover doesn't fire) and the menu bar shows no active app. We dropped
+    // .Titled deliberately so the hub paints its own titlebar; opt back in
+    // here so the window is fully interactive.
+    public override bool CanBecomeKeyWindow  => true;
+    public override bool CanBecomeMainWindow => true;
+
     public void ShowAndFocus()
     {
         MakeKeyAndOrderFront(null);
