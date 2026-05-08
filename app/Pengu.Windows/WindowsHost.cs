@@ -41,11 +41,18 @@ internal sealed class WindowsHost : IHost
     public WindowsHost()
     {
         ExeDirectory = AppContext.BaseDirectory;
-        // %LOCALAPPDATA%\.pengu\ — see docs/app-hub.md §11.
+        // %PROGRAMDATA%\.pengu\ — machine-wide so Universal mode (IFEO is
+        // HKLM-scoped) sees consistent state across users. See
+        // docs/app-hub.md §11.
         DataRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             ".pengu");
-        Directory.CreateDirectory(DataRoot);
+
+        // Create + grant Authenticated Users: Modify with inheritance so
+        // any user on the machine can read/write Pengu's shared state.
+        // First-launch wins (creator owns the dir and can set ACLs without
+        // admin); subsequent launches verify and no-op.
+        ProgramDataAcl.EnsureWritableByEveryone(DataRoot);
     }
 
     public bool IsWebViewRuntimeAvailable() => WebView2Loader.IsRuntimeAvailable();
@@ -67,7 +74,13 @@ internal sealed class WindowsHost : IHost
 
     public Task InitializeBrowserEnvironmentAsync()
     {
-        var userData = Path.Combine(DataRoot, "WebView2");
+        // WebView2 user-data folder is per-user (cookies, IndexedDB, GPU
+        // shader cache for THIS user's session). Stays in %LOCALAPPDATA%
+        // even though the rest of Pengu's data root is in %PROGRAMDATA%.
+        // Different concern from activation/plugins state.
+        var userData = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Pengu", "WebView2");
         return WebView2Environment.InitializeAsync(userData);
     }
 

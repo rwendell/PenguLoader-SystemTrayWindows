@@ -12,21 +12,27 @@ EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 path config::known_data_dir()
 {
 #if OS_WIN
-    // Mirrors the host's WindowsHost.DataRoot: %LOCALAPPDATA%\.pengu.
-    // Stay consistent with config::cache_dir() and use GetEnvironmentVariable
-    // so we don't have to pull in shell32 (SHGetFolderPath / SHGetKnownFolderPath).
+    // Mirrors the host's WindowsHost.DataRoot: %PROGRAMDATA%\.pengu.
+    // Machine-wide so Universal mode (IFEO is HKLM, kernel-side image-load
+    // redirection) sees the same plugins / disabled list / config across
+    // every user on the box. Use GetEnvironmentVariable so we don't pull
+    // in shell32 (SHGetFolderPath / SHGetKnownFolderPath).
     static std::wstring cached;
     if (cached.empty())
     {
         wchar_t buf[2048];
-        size_t length = GetEnvironmentVariableW(L"LOCALAPPDATA", buf, _countof(buf));
+        size_t length = GetEnvironmentVariableW(L"ProgramData", buf, _countof(buf));
         if (length == 0)
-            return {}; // no LOCALAPPDATA -> caller falls back to module_dir
+            return {}; // no ProgramData -> caller falls back to module_dir
         cached = buf;
         cached += L"\\.pengu";
     }
     return cached;
 #elif OS_MAC
+    // macOS doesn't have a ProgramData equivalent for "machine-wide,
+    // user-writable" state; OnDemand is the only mode and is naturally
+    // per-user (each user runs their own hub). Per-user data root is
+    // correct here.
     static std::string cached;
     if (cached.empty())
     {
