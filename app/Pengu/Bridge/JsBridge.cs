@@ -15,12 +15,21 @@ public sealed class JsBridge
 {
     private readonly IBrowserHost _browser;
     private readonly Dictionary<string, IJsInteropDispatcher> _handlers = new(StringComparer.Ordinal);
+    private readonly IDisposable? _busSubscription;
     private bool _scriptInjected;
 
-    public JsBridge(IBrowserHost browser)
+    public JsBridge(IBrowserHost browser, EventBus? bus = null)
     {
         _browser = browser;
         _browser.WebMessageReceivedAsJson += OnWebMessage;
+
+        // Subscribe this bridge to the process-wide bus so C#-originated
+        // events (activation:stateChanged, update:available, etc.) get
+        // pushed to the renderer as CustomEvents. Subscribers run on the
+        // publisher's thread; EmitEvent posts via the WebView's PostWebMessage
+        // which is internally thread-safe so we don't need to marshal.
+        if (bus is not null)
+            _busSubscription = bus.Subscribe(EmitEvent);
     }
 
     /// <summary>Register a dispatcher under its <see cref="IJsInteropDispatcher.GlobalName"/>.

@@ -1,3 +1,4 @@
+using Pengu.Activation;
 using Pengu.Bridge;
 using Pengu.Config;
 using Pengu.Logging;
@@ -55,9 +56,21 @@ public static class AppHost
         var configStore = new ConfigStore(host.DataRoot);
         configStore.Load();
 
+        // Process-wide pub/sub for C#-originated events (activation:stateChanged
+        // and friends). Bridge instances subscribe; daemon / actions publish.
+        var bus = new EventBus();
+
+        // Activation action registry. Heads (Pengu.Windows / Pengu.MacOS)
+        // register their platform-specific implementations in
+        // RegisterActivationActions; ActivationApi resolves through the
+        // registry per current config.app.activation_mode.
+        var registry = new ActivationActionRegistry();
+        host.RegisterActivationActions(registry, configStore, bus);
+
         // Bridge surface registered with every window opened by the host.
         // PingApi is the diagnostic round-trip; A.1 is ConfigApi; A.2 is
-        // PluginsApi; A.3 is HostApi/LeagueApi/I18nApi/FsApi/PathApi.
+        // PluginsApi; A.3 is HostApi/LeagueApi/I18nApi/FsApi/PathApi;
+        // C.1 adds ActivationApi (real actions land in C.2/C.3).
         var handlers = new List<IJsInteropDispatcher>
         {
             new Api.PingApi(),
@@ -68,11 +81,12 @@ public static class AppHost
             new Api.I18nApi(),
             new Api.FsApi(),
             new Api.PathApi(),
+            new Api.ActivationApi(configStore, registry, bus, host.ExeDirectory),
         };
 
         try
         {
-            await host.OpenMainWindowAsync(url, handlers).ConfigureAwait(true);
+            await host.OpenMainWindowAsync(url, handlers, bus).ConfigureAwait(true);
         }
         catch (Exception ex)
         {

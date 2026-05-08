@@ -1,4 +1,6 @@
+using Pengu.Activation;
 using Pengu.Bridge;
+using Pengu.Config;
 
 namespace Pengu;
 
@@ -36,8 +38,19 @@ public interface IHost
     /// <summary>Open the main hub window pointed at <paramref name="url"/>.
     /// The window's <see cref="IBrowserHost"/> is used to wire up a
     /// <see cref="JsBridge"/>; bridge handlers in <paramref name="bridgeHandlers"/>
-    /// are registered before the JS shim is injected.</summary>
-    Task OpenMainWindowAsync(string url, IReadOnlyList<IJsInteropDispatcher> bridgeHandlers);
+    /// are registered before the JS shim is injected. The bridge subscribes
+    /// to <paramref name="bus"/> so C#-originated events fan out to the
+    /// renderer as <c>CustomEvent</c>s.</summary>
+    Task OpenMainWindowAsync(string url, IReadOnlyList<IJsInteropDispatcher> bridgeHandlers, EventBus bus);
+
+    /// <summary>
+    /// Register platform-specific <see cref="IActivationAction"/>
+    /// implementations with <paramref name="registry"/>. Called once at
+    /// startup, after <see cref="ConfigStore"/> has loaded but before the
+    /// main window opens. Heads register their per-mode actions here
+    /// (e.g. Pengu.Windows registers <c>IfeoAction</c> + <c>CopyDllAction</c>).
+    /// </summary>
+    void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus);
 
     // ---------- A.3: HostApi-driven operations ----------
 

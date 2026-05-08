@@ -1,7 +1,9 @@
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Pengu;
+using Pengu.Activation;
 using Pengu.Bridge;
+using Pengu.Config;
 using Pengu.Logging;
 using Pengu.Pack;
 using Pengu.Windows.Browser;
@@ -69,12 +71,12 @@ internal sealed class WindowsHost : IHost
         return WebView2Environment.InitializeAsync(userData);
     }
 
-    public async Task OpenMainWindowAsync(string url, IReadOnlyList<IJsInteropDispatcher> bridgeHandlers)
+    public async Task OpenMainWindowAsync(string url, IReadOnlyList<IJsInteropDispatcher> bridgeHandlers, EventBus bus)
     {
         var window = new BorderlessWindow(AppEnv.AppName, width: 940, height: 560);
         await window.InitializeBrowserAsync().ConfigureAwait(true);
 
-        var bridge = new JsBridge(window.Browser);
+        var bridge = new JsBridge(window.Browser, bus);
         foreach (var h in bridgeHandlers)
             bridge.Register(h);
         bridge.InjectScript();
@@ -171,6 +173,17 @@ internal sealed class WindowsHost : IHost
     {
         var exe = Environment.ProcessPath ?? Path.Combine(ExeDirectory, "Pengu.exe");
         StartupRegistry.SetEnabled(enabled, exe);
+    }
+
+    public void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus)
+    {
+        // C.2 -> registry.Register(new IfeoAction(ExeDirectory, bus));
+        // C.3 -> registry.Register(new CopyDllAction(ExeDirectory, config, bus));
+        //        + start RcsDaemon listening for OnDemand sessions.
+        // C.1 leaves the registry empty; ActivationApi surfaces a typed
+        // "no action registered for mode X" failure, hub UI shows the
+        // error overlay rather than crashing.
+        _ = registry; _ = config; _ = bus;
     }
 
     private HWND MainHandle => _mainWindow?.Handle ?? HWND.NULL;
