@@ -1,23 +1,51 @@
 using AppKit;
 using Foundation;
+using Pengu;
 using Pengu.Logging;
+using Pengu.MacOS.Browser;
 using Pengu.MacOS.Window;
+using Pengu.Pack;
 
 namespace Pengu.MacOS;
 
 internal sealed class AppDelegate : NSApplicationDelegate
 {
     private BorderlessWindow? _mainWindow;
+    private WkWebViewHost?    _browser;
+    private AppDat?           _appDat;
 
     public override void DidFinishLaunching(NSNotification notification)
     {
         Log.Info("Pengu.MacOS launched (pid={0})", Environment.ProcessId);
 
-        // Phase B: open the BorderlessWindow placeholder. Phase C swaps the
-        // window's contentView for a WKWebView pointed at app://hub/ (or the
-        // Vite dev server when --dev=URL is set). Phase D wires AppHost.RunAsync
-        // through MacOSHost so the bridge handlers attach before navigation.
+        // Phase B: window. Phase C: WKWebView mounted as its contentView.
+        // Phase D will refactor to go through MacOSHost / AppHost.RunAsync so
+        // bridge handlers attach before the first navigation.
         _mainWindow = new BorderlessWindow();
+
+        // Open app.dat if it's next to the binary (Release builds). In Debug
+        // we typically rely on --dev=URL and don't need the bundle.
+        var datPath = System.IO.Path.Combine(AppContext.BaseDirectory, "app.dat");
+        if (System.IO.File.Exists(datPath))
+        {
+            try
+            {
+                _appDat = AppDat.Open(datPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to open app.dat at {0}", datPath);
+            }
+        }
+
+        _browser = new WkWebViewHost(_appDat);
+        _mainWindow.ContentView = _browser.View;
+
+        // Resolve URL: --dev wins, else the packed app://hub/ scheme. Same
+        // resolution as Pengu/AppHost.cs uses for Windows.
+        var url = AppEnv.DevUrl ?? "app://hub/";
+        _browser.Navigate(url);
+
         _mainWindow.ShowAndFocus();
     }
 
