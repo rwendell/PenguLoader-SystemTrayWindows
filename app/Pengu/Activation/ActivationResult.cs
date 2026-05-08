@@ -6,9 +6,9 @@ namespace Pengu.Activation;
 /// that carries an optional human-readable error and a stage tag.
 ///
 /// <para><see cref="Stage"/> identifies which step of the activation flow
-/// produced the failure (e.g. <c>"OpenIFEO"</c>, <c>"SetDebugger"</c>,
-/// <c>"RunElevated"</c>, <c>"ResolveLeagueDir"</c>). Useful in logs and
-/// for hub-side messages without needing a separate error code.</para>
+/// produced the failure (e.g. <c>"SetDebugger"</c>, <c>"RunElevated"</c>,
+/// <c>"CopyDll"</c>, <c>"ResolveAction"</c>). Useful in logs and for
+/// hub-side messages without needing a separate error code.</para>
 /// </summary>
 public sealed record ActivationResult(bool Ok, string? Error = null, string? Stage = null)
 {

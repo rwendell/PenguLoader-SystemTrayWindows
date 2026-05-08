@@ -21,7 +21,6 @@ public sealed record ConfigSnapshot(
 public sealed record ConfigApp(
     [property: JsonPropertyName("language")]         string Language,
     [property: JsonPropertyName("plugins_dir")]      string PluginsDir,
-    [property: JsonPropertyName("league_dir")]       string LeagueDir,
     [property: JsonPropertyName("disabled_plugins")] string DisabledPlugins,
     [property: JsonPropertyName("activation_mode")]  ActivationMode ActivationMode);
 
@@ -41,7 +40,6 @@ public static class ConfigDefaults
         App: new ConfigApp(
             Language: "en",
             PluginsDir: string.Empty,
-            LeagueDir: string.Empty,
             DisabledPlugins: string.Empty,
             ActivationMode: ActivationMode.Universal),
         Client: new ConfigClient(

@@ -5,7 +5,6 @@ const defaultConfig: ConfigSnapshot = {
   app: {
     language: 'en',
     plugins_dir: '',
-    league_dir: '',
     disabled_plugins: '',
     activation_mode: ActivationMode.Universal,
   },

@@ -35,7 +35,6 @@ export interface ConfigSnapshot {
   app: {
     language: string
     plugins_dir: string
-    league_dir: string
     disabled_plugins: string
     activation_mode: ActivationMode
   }

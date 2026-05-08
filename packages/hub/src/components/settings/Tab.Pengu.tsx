@@ -1,6 +1,5 @@
 import { Component, createSignal, onMount, Show } from 'solid-js'
 import { Config, useConfig } from '~/lib/config'
-import { LeagueClient } from '~/lib/league-client'
 import { CheckOption, OptionSet, RadioOption } from './templates'
 import { ActivationMode, CoreModule } from '~/lib/core-module'
 import { Startup } from '~/lib/startup'
@@ -51,17 +50,6 @@ export const TabPengu: Component = () => {
     }
   }
 
-  const changeLeagueDir = async () => {
-    const dir = await pengu.host.pickFolder()
-    if (typeof dir === 'string') {
-      if (await LeagueClient.validateDir(dir)) {
-        await app.league_dir(dir)
-      } else {
-        alert('Your selected path is not valid.')
-      }
-    }
-  }
-
   return (
     <div class="space-y-4">
 
@@ -72,16 +60,6 @@ export const TabPengu: Component = () => {
           {app.plugins_dir() || './plugins'}
         </span>
       </OptionSet>
-
-      <Show when={!window.isMac}>
-        <OptionSet name="LoL Client Location" disabled={app.activation_mode() === ActivationMode.Universal}>
-          <span
-            class="block text-base text-neutral-200 px-3 py-1 hover:bg-neutral-400/20 rounded-md"
-            onClick={changeLeagueDir}>
-            {app.league_dir() || '(not selected)'}
-          </span>
-        </OptionSet>
-      </Show>
 
       <Show when={window.isMac}>
         <LaunchSettings />

@@ -107,7 +107,6 @@ public sealed class ConfigStore
         var app = new ConfigApp(
             Language: map.Get("app", "language") ?? d.App.Language,
             PluginsDir: map.Get("app", "plugins_dir") ?? d.App.PluginsDir,
-            LeagueDir: map.Get("app", "league_dir") ?? d.App.LeagueDir,
             DisabledPlugins: map.Get("app", "disabled_plugins") ?? d.App.DisabledPlugins,
             ActivationMode: ParseMode(map.Get("app", "activation_mode"), d.App.ActivationMode));
 
@@ -139,7 +138,6 @@ public sealed class ConfigStore
     {
         map.Set("app", "language", app.Language);
         map.Set("app", "plugins_dir", app.PluginsDir);
-        map.Set("app", "league_dir", app.LeagueDir);
         map.Set("app", "disabled_plugins", app.DisabledPlugins);
         map.Set("app", "activation_mode", ((int)app.ActivationMode).ToString());
     }

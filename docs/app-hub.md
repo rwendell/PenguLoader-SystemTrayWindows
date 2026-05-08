@@ -18,7 +18,7 @@ This document covers the from-scratch .NET 10 host that takes over the loader UI
 - A cross-platform native dialog framework (overlays in the hub UI replace `dialog.message` etc.).
 - Plugin store install automation (the YAML registry stays a placeholder).
 - Crash dump / minidump generation.
-- Portable-install mode (drop `app.exe` and have it not touch `%LOCALAPPDATA%`).
+- Portable-install mode (drop `app.exe` and have it not touch `%PROGRAMDATA%`).
 - A generic shell/fs escape hatch (the bridge surface is narrow by design).
 
 ---
@@ -94,7 +94,7 @@ dotnet run --project app/Pengu.Windows -- --dev=http://localhost:1420
   core.dll                      # C++ core (Windows)
 ```
 
-Other state (`config`, `datastore`, `plugins/`, `WebView2/`) lives under `%LOCALAPPDATA%\.pengu\` — see [§11](#11-data-layout). macOS analog: `Pengu.app/Contents/MacOS/Pengu` + `Pengu.app/Contents/Resources/{app.dat,core.dylib}` packaged via post-publish MSBuild target.
+Other state (`config`, `datastore`, `plugins/`) lives under `%PROGRAMDATA%\.pengu\` (machine-wide, ACL'd to allow all users); WebView2 cache lives separately under `%LOCALAPPDATA%\Pengu\WebView2\` (per-user). See [§11](#11-data-layout). macOS analog: `Pengu.app/Contents/MacOS/Pengu` + `Pengu.app/Contents/Resources/{app.dat,core.dylib}` packaged via post-publish MSBuild target.
 
 ---
 
@@ -142,7 +142,7 @@ We use the full COM-source-generated WebView2 binding (`Diga.WebView2.Interop.AO
 
 `WebView2Environment` is a process-wide singleton initialized once at startup, before any window opens. It registers the custom `app://` scheme via `ICoreWebView2CustomSchemeRegistration` (must happen at env-init time; later registrations are silently ignored). Additional CLI feature: `--enable-features=msWebView2EnableDraggableRegions` so the hub's HTML titlebar can use `app-region: drag` CSS for window dragging — no explicit `host.startDragging()` call needed for the common case.
 
-WebView2 user-data folder: `%LOCALAPPDATA%\.pengu\WebView2\`. The hub doesn't use cookies/storage in practice but WebView2 requires the folder to exist.
+WebView2 user-data folder: `%LOCALAPPDATA%\Pengu\WebView2\` (per-user, separate from the machine-wide `%PROGRAMDATA%\.pengu\` data root since browser cache must not be shared across users). The hub doesn't use cookies/storage in practice but WebView2 requires the folder to exist.
 
 ### 5.2 macOS: WKWebView via .NET 10 macOS workload
 
@@ -284,7 +284,7 @@ config.write(patch)                 void                   partial merge, atomic
 
 ```csharp
 public record ConfigSnapshot(ConfigApp app, ConfigClient client);
-public record ConfigApp(string language, string plugins_dir, string league_dir,
+public record ConfigApp(string language, string plugins_dir,
                         string disabled_plugins, ActivationMode activation_mode);
 public record ConfigClient(bool use_hotkeys, bool optimized_client, bool silent_mode,
                            bool super_potato, bool insecure_mode, bool use_devtools,
@@ -417,7 +417,7 @@ Reads use `Microsoft.Win32.RegistryKey.OpenSubKey(KEY_READ)` — read APIs don't
 
 When the WAMP daemon sees a `Create` event for `productId == "league_of_legends"`:
 
-1. Resolve LoL install dir from `config.app.league_dir`. If unset, fail with a typed error and emit `activation:stateChanged { active: false }`.
+1. Resolve LoL install dir from the `LcuxSession.InstallPath` carried in the WAMP session payload (RCS includes the install path in the announcement). Fall back to `LeagueDiscovery.FindInstall()` (which walks `RiotClientInstalls.json`) if the WAMP payload didn't include it. If both fail, the action returns `ActivationResult.Fail(stage: "ResolveInstallDir")` and emits `activation:stateChanged { active: false }`.
 2. `File.Copy(<base_dir>/core.dll, <LoL>/dwrite.dll)`. If `dwrite.dll` already exists and isn't ours (byte/hash mismatch), back it up to `dwrite.dll.bak` first.
 3. Emit `activation:stateChanged { active: true }`.
 
@@ -510,16 +510,21 @@ No balloon notifications in v1 — would be chatty.
 
 | Platform | Path |
 | --- | --- |
-| Windows | `%LOCALAPPDATA%\.pengu\` |
+| Windows | `%PROGRAMDATA%\.pengu\` (= `C:\ProgramData\.pengu\`) |
 | macOS | `~/Library/Application Support/Pengu/` |
 
 Holds:
 - `config` — the ini-style config file
 - `datastore` — XOR-encoded JSON, owned by the core's `window.DataStore`
 - `plugins/` — user plugins
-- `WebView2/` (Win) — WebView2 user-data folder (cache / IndexedDB / etc.)
 
-**`%LOCALAPPDATA%` not `%APPDATA%`** because plugin assets can be heavy (themes ship 4K images, fonts, audio). Roaming AppData syncs to network shares in domain-joined enterprise PCs with folder redirection — bad for hundreds of MB of plugin assets. Local AppData stays machine-bound.
+**Why `%PROGRAMDATA%` (machine-wide) on Windows.** Universal mode writes to `HKLM\...\IFEO\LeagueClientUx.exe\Debugger`, which is system-wide — every user on the machine gets the IFEO redirect when they launch LoL. If config + plugins lived under `%LOCALAPPDATA%` (per-user), User B logging in would see IFEO firing into core.dll but no plugins (their AppData has nothing). Sharing the data root with the activation scope keeps the model consistent: one machine, one set of plugins, one IFEO state.
+
+**ACL setup**. `C:\ProgramData\.pengu\` is created on first launch and given `Authenticated Users: Modify` with `ContainerInherit | ObjectInherit` flags so all current and future descendants are read+write for any local user. The first-launch creator owns the dir and can set ACLs without admin; subsequent launches verify and no-op (idempotent). Helper: `Pengu.Windows.Native.ProgramDataAcl.EnsureWritableByEveryone(path)`.
+
+**Trust note**. Anyone on the machine can edit Pengu's config or drop a plugin once writes are open. Plugins run with full DOM access inside LCUX, so a malicious local user could backdoor another user's League session. v1.1.6's `Program Files\Pengu Loader\plugins\` after admin install had a similar shape. Pengu is for trusted single-user / family-PC contexts — two distrusting users probably shouldn't share a Pengu install.
+
+**WebView2 user-data folder is per-user, not under the data root.** Path: `%LOCALAPPDATA%\Pengu\WebView2\`. WebView2 stores cookies / IndexedDB / GPU shader cache for THIS user's session — different concern from activation/plugin state, and the WebView2 docs explicitly say the folder shouldn't be machine-wide. Each user gets their own browser cache.
 
 ### 11.2 Logs
 
@@ -543,23 +548,29 @@ The core's `Config::loader_dir()` and friends today resolve relative to the runn
 - IFEO mode → loader_dir = `<install>` (where `core.dll` is)
 - OnDemand mode → loader_dir = `<LoL>` (where `dwrite.dll` was copied) — wrong.
 
-Update `core/src/config.cc`:
+Update in `core/src/config.cc`:
 
 ```cpp
-fs::path config_root() {
+path config::known_data_dir() {
 #if OS_WIN
-    auto local = known_folder(FOLDERID_LocalAppData);
-    auto data_root = local / ".pengu";
+    // %PROGRAMDATA%\.pengu — machine-wide, matches WindowsHost.DataRoot.
+    wchar_t buf[2048];
+    GetEnvironmentVariableW(L"ProgramData", buf, _countof(buf));
+    return std::wstring(buf) + L"\\.pengu";
 #elif OS_MAC
-    auto data_root = home_dir() / "Library/Application Support/Pengu";
+    return std::string(getenv("HOME")) + "/Library/Application Support/Pengu";
 #endif
-    if (fs::exists(data_root / "config"))
-        return data_root;
-    return module_dir();   // fallback: same directory as running module
+}
+
+path config::loader_dir() {
+    auto data = known_data_dir();
+    if (!data.empty() && std::filesystem::exists(data / "config"))
+        return data;
+    return module_dir();   // fallback: directory of the running module
 }
 ```
 
-The fallback preserves OG behavior for users who haven't migrated yet (or run with a custom layout).
+The fallback preserves OG behavior for users who haven't migrated yet (or run with a custom layout). On macOS there's no ProgramData equivalent for "machine-wide, user-writable"; OnDemand is per-user there (each user runs their own hub) and the per-user `~/Library/Application Support/Pengu/` is the correct shape.
 
 ### 11.5 No portable mode
 
