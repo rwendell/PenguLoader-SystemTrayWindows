@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+    <UseMaui>false</UseMaui>
+    <RootNamespace>Pengu.MacOS</RootNamespace>
+    <AssemblyName>Pengu</AssemblyName>
+    <!-- Head is an exe, not a NuGet package. -->
+    <IsPackable>false</IsPackable>
+    <PackageId>Pengu.MacOSHead</PackageId>
+
+    <!-- Bundle identifier (CFBundleIdentifier). Reverse-DNS form; matches the
+         CFNotificationCenter name "com.pengu.lol.show" used by single-instance
+         and the LaunchAgent label "com.pengu.lol" used by auto-startup. -->
+    <ApplicationId>com.pengu.lol</ApplicationId>
+
+    <!-- AOT off during early scaffolding; toggle back on after the shape stabilizes
+         (Phase F at the latest). The shared Directory.Build.props gates AOT on
+         IsAotCapable so we just opt out here. -->
+    <IsAotCapable>false</IsAotCapable>
+
+    <!-- Explicit RID prevents the macOS workload from emitting a fat .app
+         that includes both osx-arm64 and osx-x64 — Apple Silicon dev box only. -->
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pengu\Pengu.csproj" />
+    <ProjectReference Include="..\Pengu.Gen\Pengu.Gen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!-- Hub bundle: Release-only. Mirror of Pengu.Windows.csproj BuildHubBundle. -->
+  <Target Name="BuildHubBundle" BeforeTargets="BeforeBuild"
+          Condition="'$(Configuration)' == 'Release'">
+    <Message Importance="high" Text="Pengu: building hub bundle (pnpm)" />
+    <Exec Command="pnpm --filter @pengujs/hub build"
+          WorkingDirectory="$(MSBuildThisFileDirectory)../.." />
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)../../packages/hub/dist"
+                  DestinationFile="$(IntermediateOutputPath)app.dat"
+                  Overwrite="true" />
+  </Target>
+
+  <Target Name="CopyAppDatToOutput"
+          AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
+    <Copy SourceFiles="$(IntermediateOutputPath)app.dat"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="PublishAppDat" AfterTargets="ComputeFilesToPublish"
+          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(IntermediateOutputPath)app.dat">
+        <RelativePath>app.dat</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>
