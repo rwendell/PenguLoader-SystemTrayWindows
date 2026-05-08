@@ -2,51 +2,32 @@ using AppKit;
 using Foundation;
 using Pengu;
 using Pengu.Logging;
-using Pengu.MacOS.Browser;
-using Pengu.MacOS.Window;
-using Pengu.Pack;
 
 namespace Pengu.MacOS;
 
 internal sealed class AppDelegate : NSApplicationDelegate
 {
-    private BorderlessWindow? _mainWindow;
-    private WkWebViewHost?    _browser;
-    private AppDat?           _appDat;
+    private MacOSHost? _host;
 
-    public override void DidFinishLaunching(NSNotification notification)
+    public override async void DidFinishLaunching(NSNotification notification)
     {
+        // async void is the standard pattern for AppKit delegate callbacks
+        // dispatching to async work — exceptions are caught explicitly here so
+        // they don't crash the process via Task.UnobservedTaskException.
         Log.Info("Pengu.MacOS launched (pid={0})", Environment.ProcessId);
 
-        // Phase B: window. Phase C: WKWebView mounted as its contentView.
-        // Phase D will refactor to go through MacOSHost / AppHost.RunAsync so
-        // bridge handlers attach before the first navigation.
-        _mainWindow = new BorderlessWindow();
-
-        // Open app.dat if it's next to the binary (Release builds). In Debug
-        // we typically rely on --dev=URL and don't need the bundle.
-        var datPath = System.IO.Path.Combine(AppContext.BaseDirectory, "app.dat");
-        if (System.IO.File.Exists(datPath))
+        try
         {
-            try
-            {
-                _appDat = AppDat.Open(datPath);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to open app.dat at {0}", datPath);
-            }
+            _host = new MacOSHost();
+            int rc = await AppHost.RunAsync(_host).ConfigureAwait(true);
+            if (rc != 0)
+                Log.Warn("AppHost.RunAsync returned non-zero ({0})", rc);
         }
-
-        _browser = new WkWebViewHost(_appDat);
-        _mainWindow.ContentView = _browser.View;
-
-        // Resolve URL: --dev wins, else the packed app://hub/ scheme. Same
-        // resolution as Pengu/AppHost.cs uses for Windows.
-        var url = AppEnv.DevUrl ?? "app://hub/";
-        _browser.Navigate(url);
-
-        _mainWindow.ShowAndFocus();
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Pengu startup failed");
+            NSApplication.SharedApplication.Terminate(this);
+        }
     }
 
     public override bool ApplicationShouldTerminateAfterLastWindowClosed(NSApplication sender)
@@ -60,13 +41,14 @@ internal sealed class AppDelegate : NSApplicationDelegate
 
     public override bool ApplicationShouldHandleReopen(NSApplication sender, bool hasVisibleWindows)
     {
-        // Triggered when (a) a second launch's NSRunningApplication.Activate
+        // Fires when (a) a second launch's NSRunningApplication.Activate
         // hits us via SingleInstance, or (b) the user clicks our Dock icon
-        // while no window is showing. Either way: bring the main window back.
-        if (!hasVisibleWindows && _mainWindow is not null)
+        // while no window is showing. Bring the (potentially-hidden) main
+        // window forward.
+        if (!hasVisibleWindows && _host is not null)
         {
             Log.Info("Reopen requested; un-hiding main window");
-            _mainWindow.ShowAndFocus();
+            _host.BringMainWindowToFront();
         }
         return true;
     }

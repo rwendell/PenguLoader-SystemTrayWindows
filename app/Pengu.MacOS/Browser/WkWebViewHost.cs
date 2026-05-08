@@ -46,12 +46,24 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
         var handler = new HubAssetSchemeHandler(packedAppDat);
         config.SetUrlSchemeHandler(handler, "app");
 
-        // User content controller carries (a) the JS shim injected at
-        // document-start by Phase D, and (b) our message handler that
-        // catches renderer→host posts.
+        // User content controller carries (a) the chrome.webview polyfill
+        // (b) the cross-platform JsBridgeShim injected by JsBridge.InjectScript,
+        // and (c) our message handler that catches renderer→host posts.
         var ucc = new WKUserContentController();
         ucc.AddScriptMessageHandler(this, MessageHandlerName);
         config.UserContentController = ucc;
+
+        // Inject a polyfill that maps WebView2's window.chrome.webview API to
+        // WKWebView's native primitives. The cross-platform JsBridgeShim is
+        // written for chrome.webview (postMessage + 'message' addEventListener);
+        // by polyfilling here, the same shim runs unchanged on macOS. Must be
+        // added BEFORE JsBridge.InjectScript so it loads first at
+        // document-start.
+        var polyfill = new WKUserScript(
+            (NSString)ChromeWebViewPolyfill,
+            WKUserScriptInjectionTime.AtDocumentStart,
+            isForMainFrameOnly: false);
+        ucc.AddUserScript(polyfill);
 
         // DevTools (Web Inspector) on in --dev mode, off otherwise. WKWebView
         // exposes this via Configuration.Preferences.SetValueForKey since
@@ -109,6 +121,42 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
         if (!string.IsNullOrEmpty(json))
             WebMessageReceivedAsJson?.Invoke(json);
     }
+
+    /// <summary>
+    /// Polyfill that exposes <c>window.chrome.webview</c> on WKWebView,
+    /// matching the shape <see cref="JsBridgeShim"/> expects on Windows.
+    /// Maps <c>postMessage(obj)</c> → native message handler, and
+    /// <c>addEventListener('message', cb)</c> → CustomEvent <c>pengu:message</c>
+    /// dispatched by <see cref="PostWebMessageAsJson"/>.
+    /// </summary>
+    private const string ChromeWebViewPolyfill =
+        """
+        (function () {
+          if (window.chrome && window.chrome.webview) return;
+          if (!window.chrome) window.chrome = {};
+          var listeners = [];
+          window.chrome.webview = {
+            postMessage: function (obj) {
+              window.webkit.messageHandlers.pengu.postMessage(JSON.stringify(obj));
+            },
+            addEventListener: function (name, handler) {
+              if (name === 'message') listeners.push(handler);
+            },
+            removeEventListener: function (name, handler) {
+              if (name === 'message') {
+                var i = listeners.indexOf(handler);
+                if (i >= 0) listeners.splice(i, 1);
+              }
+            }
+          };
+          window.addEventListener('pengu:message', function (e) {
+            for (var i = 0; i < listeners.length; i++) {
+              try { listeners[i]({ data: e.detail }); }
+              catch (err) { console.error('pengu bridge listener threw', err); }
+            }
+          });
+        })();
+        """;
 
     private sealed class NavigationLogger : WKNavigationDelegate
     {
