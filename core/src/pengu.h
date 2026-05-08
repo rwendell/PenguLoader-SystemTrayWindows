@@ -302,9 +302,29 @@ namespace platform
 namespace config
 {
     ///
-    /// Get the loader dir (root pengu folder).
+    /// Get the user data dir for Pengu.
+    /// Windows: `%LOCALAPPDATA%\.pengu`. macOS: `~/Library/Application Support/Pengu`.
+    /// This is where the v1.2.0+ host (`app/`) writes config / datastore / plugins.
     /// @returns Path to dir.
-    /// 
+    ///
+    path known_data_dir();
+
+    ///
+    /// Get the directory containing the running core module
+    /// (`core.dll` / `core.dylib`, or `dwrite.dll` in Windows OnDemand).
+    /// Used as the fallback when `known_data_dir()` has no config — covers
+    /// legacy installs (v1.1.6 and the discarded Tauri v1.2.0 layout) where
+    /// data lived next to the loader exe.
+    /// @returns Path to dir.
+    ///
+    path module_dir();
+
+    ///
+    /// Get the loader dir (root pengu folder).
+    /// Resolves to <see cref="known_data_dir"/> when it contains a config
+    /// file, otherwise falls back to <see cref="module_dir"/>.
+    /// @returns Path to dir.
+    ///
     path loader_dir();
 
     ///
@@ -345,7 +365,7 @@ namespace config
         bool optimized_client();
         bool silent_mode();
         bool super_potato();
-        bool isecure_mode();
+        bool insecure_mode();
         bool use_devtools();
         bool use_riotclient();
         bool use_proxy();

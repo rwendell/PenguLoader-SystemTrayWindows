@@ -9,7 +9,40 @@ EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 #include <libgen.h>
 #endif
 
-path config::loader_dir()
+path config::known_data_dir()
+{
+#if OS_WIN
+    // Mirrors the host's WindowsHost.DataRoot: %LOCALAPPDATA%\.pengu.
+    // Stay consistent with config::cache_dir() and use GetEnvironmentVariable
+    // so we don't have to pull in shell32 (SHGetFolderPath / SHGetKnownFolderPath).
+    static std::wstring cached;
+    if (cached.empty())
+    {
+        wchar_t buf[2048];
+        size_t length = GetEnvironmentVariableW(L"LOCALAPPDATA", buf, _countof(buf));
+        if (length == 0)
+            return {}; // no LOCALAPPDATA -> caller falls back to module_dir
+        cached = buf;
+        cached += L"\\.pengu";
+    }
+    return cached;
+#elif OS_MAC
+    static std::string cached;
+    if (cached.empty())
+    {
+        const char *home = getenv("HOME");
+        if (home == nullptr || *home == '\0')
+            return {};
+        cached = home;
+        cached += "/Library/Application Support/Pengu";
+    }
+    return cached;
+#else
+    return {};
+#endif
+}
+
+path config::module_dir()
 {
 #if OS_WIN
     static std::wstring path;
@@ -46,7 +79,7 @@ path config::loader_dir()
     if (path.empty())
     {
         Dl_info info;
-        if (dladdr((const void *)&loader_dir, &info))
+        if (dladdr((const void *)&module_dir, &info))
         {
             path = info.dli_fname;
             path = path.substr(0, path.rfind('/'));
@@ -54,6 +87,32 @@ path config::loader_dir()
     }
 #endif
     return path;
+}
+
+path config::loader_dir()
+{
+    // Try the user data dir first; fall back to the module's directory for
+    // legacy installs (v1.1.6 + the discarded Tauri v1.2.0 layout) where
+    // config/datastore/plugins lived next to the loader exe.
+    //
+    // Probe with `config` because that's the file the host always creates on
+    // first interaction; if it's there, app/'s migration has run (or the user
+    // is actively using the new host) and data_root is canonical.
+    //
+    // OnDemand on Windows lands the running module at <LoL>\dwrite.dll where
+    // there's no config — so without this prefer-data_root rule, the core
+    // would resolve loader_dir to the LoL folder and find nothing. After
+    // app/ has run once, data_root has config and we get it right.
+    static path resolved;
+    if (resolved.empty())
+    {
+        path data = known_data_dir();
+        if (!data.empty() && std::filesystem::exists(data / "config"))
+            resolved = data;
+        else
+            resolved = module_dir();
+    }
+    return resolved;
 }
 
 path config::datastore_path()
@@ -91,14 +150,33 @@ path config::league_dir()
 #endif
 }
 
-static void trim_tring(std::string &str)
+static void trim_string(std::string &str)
 {
-    str.erase(str.find_last_not_of(' ') + 1);
-    str.erase(0, str.find_first_not_of(' '));
+    // Trim spaces, tabs, CR, LF. CR matters because std::getline strips \n
+    // but leaves \r intact, so any line read from a CRLF-saved file (e.g.
+    // edited in Notepad) carries a trailing \r that would break value
+    // comparisons downstream ("true\r" != "true").
+    static constexpr const char *ws = " \t\r\n";
+    auto last = str.find_last_not_of(ws);
+    if (last == std::string::npos) { str.clear(); return; }
+    str.erase(last + 1);
+    str.erase(0, str.find_first_not_of(ws));
 }
 
-static auto get_config_map()
+static bool iequals(const std::string &a, const char *b)
 {
+    size_t bl = 0; while (b[bl]) ++bl;
+    if (a.size() != bl) return false;
+    for (size_t i = 0; i < bl; i++)
+        if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i]))
+            return false;
+    return true;
+}
+
+static const std::unordered_map<std::string, std::string> &get_config_map()
+{
+    // Returned by reference so each reader (we have many — one per option
+    // getter) doesn't copy the whole map on every call.
     static bool cached = false;
     static std::unordered_map<std::string, std::string> map;
 
@@ -112,21 +190,25 @@ static auto get_config_map()
             std::string line;
             while (std::getline(file, line))
             {
-                // ignore empty line or comment
-                if (line.empty() || line[0] == ';' || line[0] == '#')
-                    continue;
+                // Trim first so leading whitespace doesn't hide the comment
+                // marker / section bracket / key=value structure.
+                trim_string(line);
+                if (line.empty()) continue;
+                if (line[0] == ';' || line[0] == '#') continue;
+                if (line[0] == '[' && line.back() == ']') continue; // [section] header — keys are globally unique, ignore
 
                 size_t pos = line.find('=');
-                if (pos != std::string::npos)
-                {
-                    std::string key = line.substr(0, pos);
-                    std::string value = line.substr(pos + 1);
+                if (pos == std::string::npos) continue;
 
-                    trim_tring(key);
-                    trim_tring(value);
+                std::string key   = line.substr(0, pos);
+                std::string value = line.substr(pos + 1);
 
-                    map[key] = value;
-                }
+                trim_string(key);
+                trim_string(value);
+
+                if (key.empty()) continue;
+
+                map[key] = std::move(value);
             }
             file.close();
         }
@@ -139,43 +221,36 @@ static auto get_config_map()
 
 static std::string get_config_value(const char *key, const char *fallback)
 {
-    auto map = get_config_map();
+    const auto &map = get_config_map();
     auto it = map.find(key);
-    std::string value = fallback;
-
-    if (it != map.end())
-        value = it->second;
-
-    return value;
+    return it != map.end() ? it->second : std::string(fallback);
 }
 
 static bool get_config_value_bool(const char *key, bool fallback)
 {
-    auto map = get_config_map();
+    const auto &map = get_config_map();
     auto it = map.find(key);
-    bool value = fallback;
+    if (it == map.end()) return fallback;
 
-    if (it != map.end())
-    {
-        if (it->second == "0" || it->second == "false")
-            value = false;
-        else if (it->second == "1" || it->second == "true")
-            value = true;
-    }
-
-    return value;
+    const auto &v = it->second;
+    // Match the host-side IniReader.ParseBool surface so values written by
+    // either side round-trip cleanly: 1/0, true/false, yes/no, all
+    // case-insensitive.
+    if (v == "1" || iequals(v, "true")  || iequals(v, "yes")) return true;
+    if (v == "0" || iequals(v, "false") || iequals(v, "no"))  return false;
+    return fallback;
 }
 
 static int get_config_value_int(const char *key, int fallback)
 {
-    auto map = get_config_map();
+    const auto &map = get_config_map();
     auto it = map.find(key);
-    int value = fallback;
+    if (it == map.end()) return fallback;
 
-    if (it != map.end())
-        value = std::stoi(it->second);
-
-    return value;
+    // std::stoi throws on bad input; a malformed number must not bring the
+    // core down — fall back to the default instead.
+    try { return std::stoi(it->second); }
+    catch (...) { return fallback; }
 }
 
 path config::plugins_dir()
@@ -214,7 +289,7 @@ namespace config::options
         return get_config_value_bool(__func__, false);
     }
 
-    bool isecure_mode()
+    bool insecure_mode()
     {
         return get_config_value_bool(__func__, false);
     }
