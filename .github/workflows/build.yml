@@ -1,32 +1,22 @@
+name: build
+
 on:
   push:
     branches:
       - main
       - dev
       - release/*
+      - feat/app-hub
   workflow_dispatch:
 
 jobs:
   build:
-    name: build-${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
+    name: build-windows
+    runs-on: windows-2022
 
     defaults:
       run:
-        shell: ${{ matrix.shell }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows
-            os: windows-2022
-            shell: bash
-            tauri_args: ""
-          - platform: macos
-            os: macos-latest
-            shell: sh
-            tauri_args: --target universal-apple-darwin
+        shell: bash
 
     steps:
       - name: Checkout repository
@@ -37,27 +27,26 @@ jobs:
 
       - name: Prepare environment variables
         run: |
-          echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
-          echo "APP_VERSION=`node -p "require('./loader/package.json').version"`" >> $GITHUB_ENV
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$(node -p "require('./packages/hub/package.json').version")" >> "$GITHUB_ENV"
 
+      # Native C++ core build needs MSBuild + the VS 2022 C++ workload.
+      # The windows-2022 runner ships the workload by default; setup-msbuild
+      # just puts msbuild.exe on PATH.
       - name: Setup MSBuild
-        if: runner.os == 'Windows'
         uses: microsoft/setup-msbuild@v2
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      # .NET 10 SDK for the AOT-published Pengu.exe (Pengu.Windows.csproj).
+      # PublishAot uses the C++ toolchain shipped with the VS workload above.
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
         with:
-          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Setup Rust build cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "loader/src-tauri -> target"
+          dotnet-version: 10.0.x
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -66,40 +55,44 @@ jobs:
           run_install: |
             - recursive: true
 
-      - name: Build preload script
+      # Preload bundle is #include'd into core (renderer.cc embeds preload.g.h).
+      # Build it before core so the header exists.
+      - name: Build preload
+        run: pnpm --filter @pengujs/preload build
+
+      # C++ core -> bin/core.dll. The vcxproj writes there directly.
+      - name: Build core
+        run: msbuild.exe core/core.vcxproj -p:Configuration=Release -p:Platform=x64 -nologo -m
+
+      # AOT-publish the .NET 10 host. The csproj's BuildHubBundle target runs
+      # `pnpm --filter @pengujs/hub build` and zips packages/hub/dist/ into
+      # app.dat as part of the build, and the PublishAppDat target adds app.dat
+      # to ResolvedFileToPublish — so a single dotnet publish produces
+      # Pengu.exe + app.dat in the output dir.
+      - name: Publish app/Pengu.Windows (AOT)
         run: |
-          cd packages/preload
-          pnpm build
+          dotnet publish app/Pengu.Windows \
+            -c Release \
+            -r win-x64 \
+            --output app-publish
 
-      - name: Build core (windows)
-        if: runner.os == 'Windows'
-        run: msbuild.exe pengu.slnx -t:build -p:Configuration=Release -p:Platform=x64
-
-      - name: Build core (macos)
-        if: runner.os == 'macOS'
-        run: make release
-
-      - name: Build app-hub
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: "packages/hub"
-          args: ${{ matrix.tauri_args }}
-
-      - name: Move app-hub output (windows)
-        if: runner.os == 'Windows'
+      # Stage the runtime payload as a clean portable folder. upload-artifact
+      # zips this into a single archive with `Pengu/` as the inner wrapper —
+      # extract anywhere, run Pengu.exe.
+      - name: Stage portable payload
         run: |
-          cp "packages/hub/src-tauri/target/release/Pengu Loader.exe" bin/
+          mkdir -p "out/"
+          cp app-publish/Pengu.exe            "out/"
+          cp app-publish/app.dat              "out/"
+          cp app-publish/WebView2Loader.dll   "out/"
+          cp bin/core.dll                     "out/"
 
-      - name: Move app-hub output (macos)
-        if: runner.os == 'macOS'
-        run: |
-          cp -r "packages/hub/src-tauri/target/universal-apple-darwin/release/bundle/macos/Pengu Loader.app" bin/
-          cp "packages/hub/src-tauri/target/universal-apple-darwin/release/bundle/dmg/"*.dmg bin/
-
-      - name: Upload build output
+      - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pengu-v${{ env.APP_VERSION }}-dev-${{ env.SHORT_SHA }}-${{ matrix.platform }}
-          path: |
-            bin/
-            !bin/obj/
+          name: Pengu-v${{ env.APP_VERSION }}-${{ env.SHORT_SHA }}-windows-x64
+          # path: out (not out/Pengu) so the resulting zip contains a
+          # Pengu/ folder at its root rather than the loose files.
+          path: out/
+          if-no-files-found: error
+          compression-level: 9
