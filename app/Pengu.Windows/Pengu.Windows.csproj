@@ -40,17 +40,37 @@
   <Target Name="BuildHubBundle" BeforeTargets="BeforeBuild"
           Condition="'$(Configuration)' == 'Release'">
     <Message Importance="high" Text="Pengu: building hub bundle (pnpm)" />
-    <Exec Command="pnpm --filter @pengu/hub build"
+    <Exec Command="pnpm --filter @pengujs/hub build"
           WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
+    <!-- BeforeBuild fires before the SDK creates $(IntermediateOutputPath),
+         so the destination directory might not exist yet on a clean build. -->
+    <MakeDir Directories="$(IntermediateOutputPath)" />
     <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)..\..\packages\hub\dist"
                   DestinationFile="$(IntermediateOutputPath)app.dat"
                   Overwrite="true" />
   </Target>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <None Include="$(IntermediateOutputPath)app.dat"
-          CopyToOutputDirectory="PreserveNewest"
-          Visible="false" />
-  </ItemGroup>
+  <!-- Copy the generated app.dat into bin/. Can't use <None Include> at
+       static evaluation because the file doesn't exist yet; do it via a
+       target that runs after the SDK's output-copy step. -->
+  <Target Name="CopyAppDatToOutput"
+          AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
+    <Copy SourceFiles="$(IntermediateOutputPath)app.dat"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- For dotnet publish: add app.dat to ResolvedFileToPublish so it lands
+       beside Pengu.exe in the publish output. -->
+  <Target Name="PublishAppDat" AfterTargets="ComputeFilesToPublish"
+          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(IntermediateOutputPath)app.dat">
+        <RelativePath>app.dat</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

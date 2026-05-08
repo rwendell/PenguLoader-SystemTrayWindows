@@ -86,3 +86,16 @@ internal partial class NavigationCompletedHandler
         try { _onCompleted(args); } catch (Exception ex) { Pengu.Logging.Log.Error(ex, "NavigationCompleted handler threw"); }
     }
 }
+
+[GeneratedComClass]
+internal partial class WebResourceRequestedHandler
+    : ICoreWebView2WebResourceRequestedEventHandler
+{
+    private readonly Action<ICoreWebView2WebResourceRequestedEventArgs> _onRequest;
+    public WebResourceRequestedHandler(Action<ICoreWebView2WebResourceRequestedEventArgs> onRequest) => _onRequest = onRequest;
+
+    public void Invoke(ICoreWebView2 sender, ICoreWebView2WebResourceRequestedEventArgs args)
+    {
+        try { _onRequest(args); } catch (Exception ex) { Pengu.Logging.Log.Error(ex, "WebResourceRequested handler threw"); }
+    }
+}

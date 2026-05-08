@@ -44,7 +44,16 @@ public sealed class WebView2Environment
         // CSS to mark its HTML titlebar as a Win32 drag region, so the SolidJS
         // header drags the host window without explicit IPC.
         var args = additionalArgs ?? "--enable-features=msWebView2EnableDraggableRegions";
-        var opts = new WebView2EnvironmentOptions(args);
+
+        // Register `app://` as a custom scheme up front. Without this, navigations
+        // to `app://hub/...` silently bail and `WebResourceRequested` never fires.
+        // treatAsSecure + hasAuthorityComponent so app:// behaves like https for
+        // service-worker / secure-context APIs.
+        var schemes = new ICoreWebView2CustomSchemeRegistration[]
+        {
+            new CustomSchemeRegistration("app", treatAsSecure: true, hasAuthorityComponent: true),
+        };
+        var opts = new WebView2EnvironmentOptions(args, schemes);
 
         var tcs = new TaskCompletionSource<ICoreWebView2Environment>(TaskCreationOptions.RunContinuationsAsynchronously);
         var handler = new CreateEnvironmentCompletedHandler(tcs);

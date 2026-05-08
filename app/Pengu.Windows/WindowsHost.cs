@@ -3,6 +3,7 @@ using System.Security.Principal;
 using Pengu;
 using Pengu.Bridge;
 using Pengu.Logging;
+using Pengu.Pack;
 using Pengu.Windows.Browser;
 using Pengu.Windows.Native;
 using Pengu.Windows.Window;
@@ -27,6 +28,13 @@ internal sealed class WindowsHost : IHost
     /// this window. Null until the first window opens.
     /// </summary>
     private BorderlessWindow? _mainWindow;
+
+    /// <summary>
+    /// Packed asset reader for <c>app.dat</c>, opened lazily when the first
+    /// window navigates to <c>app://hub/</c>. Null in dev mode (DevUrl set)
+    /// since we never read from the pack there.
+    /// </summary>
+    private AppDat? _appDat;
 
     public WindowsHost()
     {
@@ -70,6 +78,31 @@ internal sealed class WindowsHost : IHost
         foreach (var h in bridgeHandlers)
             bridge.Register(h);
         bridge.InjectScript();
+
+        // Packed mode: open app.dat once and wire the scheme handler before
+        // the first navigation. Dev mode (--dev=<url>) skips this entirely
+        // and goes straight to the Vite server.
+        if (AppEnv.DevUrl is null)
+        {
+            var datPath = Path.Combine(ExeDirectory, "app.dat");
+            if (File.Exists(datPath))
+            {
+                try
+                {
+                    _appDat = AppDat.Open(datPath);
+                    AppSchemeHandler.Attach(window.Browser, _appDat, WebView2Environment.Instance.Native);
+                    Log.Info("app:// scheme handler attached ({0})", datPath);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Failed to open app.dat at {0}; navigation to app:// will 404", datPath);
+                }
+            }
+            else
+            {
+                Log.Warn("app.dat not found at {0}; running in packed mode without bundle", datPath);
+            }
+        }
 
         window.Browser.ResizeToFill();
         window.Show();

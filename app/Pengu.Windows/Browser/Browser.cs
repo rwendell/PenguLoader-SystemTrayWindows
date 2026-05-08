@@ -102,6 +102,21 @@ public sealed class Browser : IBrowserHost
         _webView.AddScriptToExecuteOnDocumentCreated(script, h);
     }
 
+    /// <summary>
+    /// Subscribe to <c>WebResourceRequested</c> for URLs matching
+    /// <paramref name="uriFilter"/>. The filter follows WebView2's wildcard
+    /// syntax (e.g. <c>"app://*"</c>). Used by <see cref="AppSchemeHandler"/>
+    /// to serve packed assets for <c>app://hub/</c>.
+    /// </summary>
+    public void AddWebResourceRequestedFilter(string uriFilter, Action<ICoreWebView2WebResourceRequestedEventArgs> onRequest)
+    {
+        if (_webView is null) return;
+        _webView.AddWebResourceRequestedFilter(uriFilter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT.COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
+        var h = new WebResourceRequestedHandler(onRequest);
+        _handlers.Add(h);
+        _webView.add_WebResourceRequested(h, out _);
+    }
+
     /// <summary>Resize the WebView2 controller to fill the parent's client area.</summary>
     public void ResizeToFill()
     {
