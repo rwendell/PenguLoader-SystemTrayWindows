@@ -99,12 +99,21 @@ public sealed partial class MacOSHost : IHost
 
     public void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus)
     {
-        // Phase F: register Pengu.MacOS.Activation.RespawnAction (Universal).
-        // Phase G:  register Pengu.MacOS.Activation.InsertDylibAction (OnDemand).
-        // Empty for now — bridge calls to pengu.activation.* report
-        // "not available" until those are wired.
-        _ = registry; _ = config; _ = bus;
+        // Universal mode: kill-and-respawn LCUX with DYLD_INSERT_LIBRARIES.
+        // OnDemand fallback (legacy libEGL patch) is intentionally not
+        // registered — Universal is the only supported mode on macOS.
+        registry.Register(new Pengu.MacOS.Activation.RespawnAction(CoreDylibPath, bus));
+        _ = config;
     }
+
+    /// <summary>
+    /// Path to <c>core.dylib</c> shipped inside the .app bundle. Resolves to
+    /// <c>Pengu.app/Contents/Resources/core.dylib</c> in both dev and release
+    /// because <see cref="ExeDirectory"/> is <c>Contents/MonoBundle/</c>
+    /// (where .NET stages assemblies in a macOS bundle).
+    /// </summary>
+    public string CoreDylibPath => Path.GetFullPath(
+        Path.Combine(ExeDirectory, "..", "Resources", "core.dylib"));
 
     public bool IsAdmin() => geteuid() == 0;
 
