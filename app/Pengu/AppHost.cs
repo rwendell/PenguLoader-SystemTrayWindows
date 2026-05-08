@@ -1,6 +1,7 @@
 using Pengu.Bridge;
 using Pengu.Config;
 using Pengu.Logging;
+using Pengu.Migration;
 
 namespace Pengu;
 
@@ -18,6 +19,12 @@ public static class AppHost
     {
         Log.Info("{0} v{1} starting (pid={2}, dataRoot={3})",
             AppEnv.AppName, AppEnv.AppVersion, Environment.ProcessId, host.DataRoot);
+
+        // First-launch migrator: move legacy <install>/{config,datastore,plugins/}
+        // into <DataRoot>/. Idempotent — only acts when the source exists and
+        // the destination doesn't. Must run before ConfigStore.Load() so the
+        // first read picks up the migrated file.
+        InstallMigrator.Run(host.ExeDirectory, host.DataRoot);
 
         if (!host.IsWebViewRuntimeAvailable())
         {
