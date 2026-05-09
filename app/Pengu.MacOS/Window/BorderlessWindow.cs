@@ -113,7 +113,27 @@ internal sealed class BorderlessWindow : NSWindow
     public void ShowAndFocus()
     {
         MakeKeyAndOrderFront(null);
-        NSApplication.SharedApplication.Activate();
+        ActivateApp();
+    }
+
+    /// <summary>
+    /// Activate the app. <c>NSApplication.Activate()</c> is macOS 14+; older
+    /// systems use the deprecated <c>ActivateIgnoringOtherApps(true)</c>,
+    /// which is the documented way until 14 lands and the only call shape
+    /// that exists pre-14.
+    /// </summary>
+    internal static void ActivateApp()
+    {
+        if (OperatingSystem.IsMacOSVersionAtLeast(14, 0))
+        {
+            NSApplication.SharedApplication.Activate();
+        }
+        else
+        {
+#pragma warning disable CA1422 // deprecated-on-14 but the *only* form available on 12-13
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+#pragma warning restore CA1422
+        }
     }
 
     /// <summary>

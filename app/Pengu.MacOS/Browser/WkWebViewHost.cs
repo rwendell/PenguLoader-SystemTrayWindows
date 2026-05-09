@@ -273,6 +273,11 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
             }
         }
 
+        // Apple deprecated the synchronous text-input panel WKUIDelegate
+        // method in favor of an async (completion-handler-based) sibling.
+        // The deprecated form still works on macOS 12+ and is what the .NET
+        // binding exposes; explicit [Obsolete] silences CS0672.
+        [Obsolete("Implements the deprecated WKUIDelegate text-input override; intentional on macOS 12-14.")]
         public override void RunJavaScriptTextInputPanel(
             WKWebView webView, string prompt, string? defaultText, WKFrameInfo frame,
             Action<string> completionHandler)

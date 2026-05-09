@@ -111,7 +111,7 @@ public sealed partial class MacOSHost : IHost
         if (_mainWindow is { } existing)
         {
             existing.MakeKeyAndOrderFront(null);
-            NSApplication.SharedApplication.Activate();
+            BorderlessWindow.ActivateApp();
             return;
         }
 
@@ -235,12 +235,18 @@ public sealed partial class MacOSHost : IHost
 
     public Task<string?> PickFolderAsync(string? initialPath)
     {
+        // NSOpenPanel + RunModal are marked obsolete since 10.15 (Apple's
+        // recommended path is the async sheet form), but the synchronous
+        // modal still works through macOS 26 and is the simplest API for
+        // our host's blocking-pick-folder semantics. Async sheet refactor
+        // is future work if the modal-blocks-UI behavior becomes an issue.
+#pragma warning disable CA1422 // NSOpenPanel deprecated 10.15+; still functional on 12-26.
         var panel = new NSOpenPanel
         {
-            CanChooseDirectories = true,
-            CanChooseFiles = false,
+            CanChooseDirectories    = true,
+            CanChooseFiles          = false,
             AllowsMultipleSelection = false,
-            ShowsHiddenFiles = false,
+            ShowsHiddenFiles        = false,
         };
         if (!string.IsNullOrEmpty(initialPath))
         {
@@ -249,6 +255,7 @@ public sealed partial class MacOSHost : IHost
         }
 
         var rc = panel.RunModal();
+#pragma warning restore CA1422
         if (rc != 1 /* NSModalResponseOK */) return Task.FromResult<string?>(null);
         return Task.FromResult(panel.Urls.FirstOrDefault()?.Path);
     }
