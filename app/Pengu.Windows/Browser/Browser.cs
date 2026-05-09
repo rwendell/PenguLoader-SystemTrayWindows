@@ -117,6 +117,26 @@ public sealed class Browser : IBrowserHost
         _webView.add_WebResourceRequested(h, out _);
     }
 
+    /// <summary>
+    /// Programmatically forward focus into the WebView2 child. Call from the
+    /// parent window's <c>WM_ACTIVATE</c> handler so the page reclaims
+    /// keyboard focus the moment the window activates — without this, click-
+    /// activating the title bar leaves focus on the parent HWND and the user
+    /// has to click again inside the page area to type / interact.
+    /// </summary>
+    public void Focus()
+    {
+        if (_controller is null) return;
+        try
+        {
+            _controller.MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON.COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Browser.Focus failed: {0}", ex.Message);
+        }
+    }
+
     /// <summary>Resize the WebView2 controller to fill the parent's client area.</summary>
     public void ResizeToFill()
     {

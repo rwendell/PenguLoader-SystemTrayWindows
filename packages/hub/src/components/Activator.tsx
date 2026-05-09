@@ -1,4 +1,4 @@
-import { Component, createSignal, onMount, Show } from 'solid-js'
+import { Component, createSignal, onCleanup, onMount, Show } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { CoreModule } from '../lib/core-module'
 import { BoltIcon, PowerIcon } from './Icons'
@@ -16,20 +16,51 @@ import { useTippy } from '../lib/utils'
  * freezes the event loop the instant it's called, so a pure-CSS hover
  * implementation leaves the pill stuck mid-expansion behind the modal —
  * visibly overlapping the adjacent Store icon. By owning the state in JS
- * we can force-collapse and await the transition before any blocking
- * dialog fires (see {@link Activator.collapseAndWait}).
+ * we can force-collapse before any blocking dialog fires (see
+ * {@link Activator.collapseAndWait}). Mouseleave is debounced so the
+ * sub-frame leave/enter chatter from the animating left edge crossing the
+ * cursor doesn't produce a flicker loop.
  *
  * Source of truth for activation state:
  *   - initial state: `pengu.activation.isActive()` at mount.
  *   - daemon updates: `window` 'activation:stateChanged' events emitted from
  *     C# (RCS WAMP detect on macOS, post-toggle confirm on Windows).
  */
-const TRANSITION_MS = 200
-
 export const Activator: Component = () => {
   const [loading, setLoading] = createSignal(true)
   const [active, setActive] = createSignal(false)
   const [expanded, setExpanded] = createSignal(false)
+
+  // Debounce mouseleave by a few frames. During the 200ms expand animation
+  // the button's left edge sweeps leftward across whatever pixel the cursor
+  // sits on; browser hit-testing can fire a transient mouseleave/mouseenter
+  // pair as the edge crosses the cursor, which would otherwise restart the
+  // expand and produce the flicker loop the user sees at the left edge.
+  // 60ms is short enough to feel snappy on a real exit, long enough to
+  // bridge a few animation frames of edge-crossing chatter.
+  const LEAVE_DEBOUNCE_MS = 60
+  let leaveTimer: ReturnType<typeof setTimeout> | undefined
+  const cancelPendingLeave = () => {
+    if (leaveTimer !== undefined) {
+      clearTimeout(leaveTimer)
+      leaveTimer = undefined
+    }
+  }
+
+  const handleEnter = () => {
+    cancelPendingLeave()
+    setExpanded(true)
+  }
+
+  const handleLeave = () => {
+    cancelPendingLeave()
+    leaveTimer = setTimeout(() => {
+      setExpanded(false)
+      leaveTimer = undefined
+    }, LEAVE_DEBOUNCE_MS)
+  }
+
+  onCleanup(cancelPendingLeave)
 
   /**
    * Collapse the pill and wait the transition out before returning. Call
@@ -37,8 +68,9 @@ export const Activator: Component = () => {
    * freeze in the expanded state and overlap adjacent appbar buttons.
    */
   const collapseAndWait = async () => {
+    cancelPendingLeave()
     setExpanded(false)
-    await new Promise<void>(r => setTimeout(r, TRANSITION_MS + 20))
+    await new Promise<void>(r => setTimeout(r, 220))
   }
 
   const activate = async () => {
@@ -80,8 +112,8 @@ export const Activator: Component = () => {
     <button
       type="button"
       onClick={activate}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
       aria-busy={loading()}
       aria-checked={active()}
       data-expanded={expanded()}
@@ -108,7 +140,7 @@ export const Activator: Component = () => {
         flex items-center gap-1 h-7 px-2
         border border-transparent rounded-full
         bg-transparent
-        transition-all duration-200 ease-out
+        transition-all duration-150 ease-out
         group-data-[expanded=true]:px-3
         group-data-[expanded=true]:border-foreground/25
         group-data-[expanded=true]:bg-foreground/5
@@ -127,7 +159,7 @@ export const Activator: Component = () => {
           max-w-0 ml-0 group-data-[expanded=true]:max-w-20 group-data-[expanded=true]:ml-1
           text-foreground/80
           group-aria-checked:text-primary
-          transition-all duration-200 ease-out
+          transition-all duration-0
         ">{active() ? 'READY' : 'Activate'}</span>
       </span>
     </button>

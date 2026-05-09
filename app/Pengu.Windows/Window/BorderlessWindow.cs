@@ -179,6 +179,32 @@ public sealed class BorderlessWindow : Win32Window
                 // turns into the standard resize loop.
                 return (IntPtr)(int)HitTestValues.HTCLIENT;
 
+            case WindowMessage.WM_SETFOCUS:
+                // Parent HWND received keyboard focus — forward it into the
+                // WebView2 child so the page becomes the actual focus target.
+                //
+                // We hook WM_SETFOCUS rather than WM_ACTIVATE: WM_ACTIVATE
+                // fires *before* the window actually has keyboard focus, so
+                // a MoveFocus() there sets WebView2 focus, then Windows
+                // completes the activation by routing WM_SETFOCUS to the
+                // parent — which steals focus back from the child and
+                // produces a visible inactive→active→inactive flicker (the
+                // hub watches `window.focus`/`blur` to grey the appbar).
+                // WM_SETFOCUS is the post-activation signal: parent has the
+                // focus *now*, redirecting to the child here is the final
+                // state.
+                //
+                // Cases this handles vs. doesn't:
+                //   - Taskbar / title-bar click  → parent gets WM_SETFOCUS;
+                //     forward to child here.
+                //   - Click directly in page     → child gets WM_SETFOCUS,
+                //     parent doesn't, no-op (already focused). ✓
+                //   - Alt-tab to a window where the child last held focus →
+                //     Windows restores child focus directly, parent doesn't
+                //     get WM_SETFOCUS, no-op. ✓
+                _browser?.Focus();
+                break;
+
             case WindowMessage.WM_SIZE:
                 _browser?.ResizeToFill();
                 _resizeFrame?.OnParentResized();
