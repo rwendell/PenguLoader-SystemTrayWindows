@@ -6,8 +6,10 @@ using Pengu.Bridge;
 using Pengu.Config;
 using Pengu.Logging;
 using Pengu.MacOS.Browser;
+using Pengu.MacOS.Tray;
 using Pengu.MacOS.Window;
 using Pengu.Pack;
+using Pengu.State;
 
 namespace Pengu.MacOS;
 
@@ -25,6 +27,7 @@ public sealed partial class MacOSHost : IHost
     private BorderlessWindow? _mainWindow;
     private WkWebViewHost?    _browser;
     private AppDat?           _appDat;
+    private StatusItem?       _statusItem;
 
     public MacOSHost()
     {
@@ -57,6 +60,8 @@ public sealed partial class MacOSHost : IHost
         return Task.CompletedTask;
     }
 
+    private string? _navUrl;
+
     public Task OpenMainWindowAsync(
         string url,
         IReadOnlyList<IJsInteropDispatcher> bridgeHandlers,
@@ -80,22 +85,66 @@ public sealed partial class MacOSHost : IHost
             }
         }
 
-        _mainWindow = new BorderlessWindow();
+        // First-call setup: WkWebViewHost (which owns the WKWebView) is
+        // created once and survives across window close/reopen cycles. The
+        // JsBridge subscribes to the bus, so it stays alive forever via
+        // bus.Subscribe -> Action -> JsBridge -> _browser; recreating it on
+        // every reopen would leak subscribers.
         _browser = new WkWebViewHost(_appDat);
-        _mainWindow.ContentView = _browser.View;
-
-        // Wire up the bridge before navigation: shim is injected at
-        // document-start via WKUserScript, so it's in place before any
-        // page script runs on the new navigation.
         var bridge = new JsBridge(_browser, bus);
         foreach (var h in bridgeHandlers)
             bridge.Register(h);
         bridge.InjectScript();
 
         _browser.Navigate(url);
-        _mainWindow.ShowAndFocus();
+        _navUrl = url;
+
+        OpenWindow();
         return Task.CompletedTask;
     }
+
+    private void OpenWindow()
+    {
+        if (_browser is null) return; // not initialized yet (shouldn't happen via AppHost flow)
+
+        if (_mainWindow is { } existing)
+        {
+            existing.MakeKeyAndOrderFront(null);
+            NSApplication.SharedApplication.Activate();
+            return;
+        }
+
+        // Restore the placement saved at the last close. First launch (no
+        // window.json yet) gets a centered default-sized window.
+        var initial = WindowStateStore.TryLoad(WindowStatePath);
+
+        // Fresh window: re-attach the surviving WKWebView as its contentView.
+        // The hook is invoked from BorderlessWindowDelegate.WillClose so a
+        // close from any source (hub button, Cmd-W, programmatic) cleans up
+        // the same way.
+        var window = new BorderlessWindow(initial: initial, onWillClose: HandleWindowWillClose);
+        window.ContentView = _browser.View;
+        _mainWindow = window;
+        window.ShowAndFocus();
+    }
+
+    private void HandleWindowWillClose()
+    {
+        // Persist current placement before tearing down.
+        if (_mainWindow is { } window)
+        {
+            try { WindowStateStore.Save(WindowStatePath, window.GetWindowState()); }
+            catch (Exception ex) { Log.Warn("Failed to save window state: {0}", ex.Message); }
+        }
+
+        // Detach the WKWebView so it survives this window's destruction —
+        // we'll re-parent it onto the next freshly-created window.
+        _browser?.View.RemoveFromSuperview();
+        _mainWindow = null;
+        Log.Info("Main window closed; daemon continues in tray");
+    }
+
+    private string WindowStatePath => Path.Combine(DataRoot, "window.json");
 
     public void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus)
     {
@@ -103,6 +152,11 @@ public sealed partial class MacOSHost : IHost
         // OnDemand fallback (legacy libEGL patch) is intentionally not
         // registered — Universal is the only supported mode on macOS.
         registry.Register(new Pengu.MacOS.Activation.RespawnAction(CoreDylibPath, bus));
+
+        // Menubar status item — required on macOS so the daemon stays
+        // accessible after the user closes the hub window.
+        _statusItem = new StatusItem(this, registry, bus);
+
         _ = config;
     }
 
@@ -121,26 +175,22 @@ public sealed partial class MacOSHost : IHost
 
     public void CloseMainWindow()
     {
-        // The hub renders its own close button (no native traffic-light since
-        // we drop .Titled). PerformClose on a borderless NSWindow beeps and
-        // bails — there's no native button to "perform" against. Skip the
-        // close lifecycle entirely and OrderOut: the daemon stays alive,
-        // LcuxWatcher keeps watching, the user can re-summon via Dock click.
-        _mainWindow?.OrderOut(_mainWindow);
+        // Tauri-style close: actually destroy the window. WillClose hook
+        // runs HandleWindowWillClose which detaches WKWebView + nulls the
+        // window reference. The daemon continues running; the tray "Open hub"
+        // menu item (or Dock icon click) recreates a fresh window with the
+        // same WKWebView re-parented.
+        _mainWindow?.Close();
     }
 
     /// <summary>
-    /// Bring the hidden main window back to front. Called from
-    /// <c>AppDelegate.ApplicationShouldHandleReopen</c> when a second-launch
-    /// activates us, or when the user clicks the Dock icon while no window
-    /// is showing.
+    /// Open or re-front the main window. Called from the tray's "Open hub"
+    /// menu item, from <c>AppDelegate.ApplicationShouldHandleReopen</c>
+    /// (Dock-icon-click), and from a second-launch via SingleInstance.
+    /// Creates a fresh <see cref="BorderlessWindow"/> if none exists, else
+    /// brings the existing one to front.
     /// </summary>
-    public void BringMainWindowToFront()
-    {
-        if (_mainWindow is null) return;
-        _mainWindow.MakeKeyAndOrderFront(null);
-        NSApplication.SharedApplication.Activate();
-    }
+    public void BringMainWindowToFront() => OpenWindow();
 
     public void StartDragging()
     {

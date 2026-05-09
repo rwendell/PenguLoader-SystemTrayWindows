@@ -37,6 +37,20 @@
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- App icon (.icns) gets copied into Contents/Resources/ at build time
+         via the macOS workload's BundleResource handling. CFBundleIconFile
+         in Info.plist points at "app-icon" (without extension). -->
+    <BundleResource Include="app-icon.icns" />
+
+    <!-- Tray status-bar icon (Phase H). 32×32 PNG; loaded as NSImage at
+         startup. Embedded as a managed resource so we don't need to deal
+         with cross-RID path resolution against Contents/Resources/. -->
+    <EmbeddedResource Include="tray-icon.png">
+      <LogicalName>tray-icon.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <!-- Hub bundle: Release-only. Mirror of Pengu.Windows.csproj BuildHubBundle. -->
   <Target Name="BuildHubBundle" BeforeTargets="BeforeBuild"
           Condition="'$(Configuration)' == 'Release'">

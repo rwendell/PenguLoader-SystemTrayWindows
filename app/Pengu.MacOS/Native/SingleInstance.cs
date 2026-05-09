@@ -1,3 +1,5 @@
+using AppKit;
+using Foundation;
 using Pengu;
 using Pengu.Logging;
 
@@ -33,9 +35,33 @@ internal static class SingleInstance
             return true;
         }
 
-        Log.Info("Another Pengu instance is running; exiting");
+        Log.Info("Another Pengu instance is running; signaling it and exiting");
         s_mutex.Dispose();
         s_mutex = null;
+
+        // Wake the running instance so its window respawns even after the user
+        // closed it earlier. NSRunningApplication.Activate fires
+        // applicationShouldHandleReopen on the receiver, which is wired in
+        // AppDelegate to call MacOSHost.BringMainWindowToFront.
+        try
+        {
+            int selfPid = Environment.ProcessId;
+            var others = NSRunningApplication
+                .GetRunningApplications("com.pengu.lol")
+                .Where(app => app.ProcessIdentifier != selfPid);
+            foreach (var app in others)
+            {
+                app.Activate(NSApplicationActivationOptions.ActivateAllWindows);
+                break;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Activation failure isn't fatal — we still acquired-and-released
+            // the mutex correctly, so the second instance just exits silently.
+            Log.Warn("Failed to activate running Pengu instance: {0}", ex.Message);
+        }
+
         return false;
     }
 
