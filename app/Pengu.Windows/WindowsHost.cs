@@ -24,6 +24,11 @@ internal sealed class WindowsHost : IHost
     public string DataRoot { get; }
     public string ExeDirectory { get; }
 
+    /// <summary><see cref="IHost.CoreModulePath"/> — <c>core.dll</c> alongside
+    /// the host exe. macOS counterpart is
+    /// <c>Pengu.app/Contents/Resources/core.dylib</c>.</summary>
+    public string CoreModulePath => Path.Combine(ExeDirectory, "core.dll");
+
     /// <summary>Per-user state root: <c>%LOCALAPPDATA%\.pengu\</c>. Holds
     /// per-user concerns that don't belong in the machine-wide
     /// <see cref="DataRoot"/> — WebView2 cache, window placement, anything

@@ -127,7 +127,7 @@ internal sealed class StatusItem
 
     private void OnRevealCoreDylib(object? sender, EventArgs e)
     {
-        var path = _host.CoreDylibPath;
+        var path = _host.CoreModulePath;
         if (!File.Exists(path))
         {
             // No core.dylib yet — open the parent (Resources/) so the user

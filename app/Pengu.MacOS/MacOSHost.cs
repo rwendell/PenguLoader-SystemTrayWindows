@@ -156,7 +156,7 @@ public sealed partial class MacOSHost : IHost
         // "respawn failed" failures even if the hub UI swallows the
         // ActivationResult.
         registry.Register(new Pengu.MacOS.Activation.RespawnAction(
-            CoreDylibPath,
+            CoreModulePath,
             bus,
             onError: Pengu.MacOS.Native.Alerts.ShowError));
 
@@ -173,7 +173,7 @@ public sealed partial class MacOSHost : IHost
     /// because <see cref="ExeDirectory"/> is <c>Contents/MonoBundle/</c>
     /// (where .NET stages assemblies in a macOS bundle).
     /// </summary>
-    public string CoreDylibPath => Path.GetFullPath(
+    public string CoreModulePath => Path.GetFullPath(
         Path.Combine(ExeDirectory, "..", "Resources", "core.dylib"));
 
     public bool IsAdmin() => geteuid() == 0;
