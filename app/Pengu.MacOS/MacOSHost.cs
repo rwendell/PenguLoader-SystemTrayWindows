@@ -6,6 +6,7 @@ using Pengu.Bridge;
 using Pengu.Config;
 using Pengu.Logging;
 using Pengu.MacOS.Browser;
+using Pengu.MacOS.Startup;
 using Pengu.MacOS.Tray;
 using Pengu.MacOS.Window;
 using Pengu.Pack;
@@ -246,16 +247,22 @@ public sealed partial class MacOSHost : IHost
         return Task.FromResult(panel.Urls.FirstOrDefault()?.Path);
     }
 
-    public bool StartupIsEnabled()
-    {
-        // Phase I: ~/Library/LaunchAgents/com.pengu.lol.plist. Stub for now.
-        return false;
-    }
+    public bool StartupIsEnabled() => LaunchAgent.IsEnabled();
 
     public void SetStartupEnabled(bool enabled)
     {
-        // Phase I.
-        _ = enabled;
+        if (enabled)
+        {
+            // The agent's `Program` key needs the absolute path to the
+            // .app's inner binary. AppContext.BaseDirectory is
+            // Contents/MonoBundle/, so the binary is ../MacOS/Pengu.
+            var binary = Path.GetFullPath(Path.Combine(ExeDirectory, "..", "MacOS", "Pengu"));
+            LaunchAgent.Enable(binary);
+        }
+        else
+        {
+            LaunchAgent.Disable();
+        }
     }
 
     [System.Runtime.InteropServices.LibraryImport("/usr/lib/libSystem.dylib")]
