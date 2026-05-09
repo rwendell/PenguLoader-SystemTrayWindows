@@ -35,14 +35,23 @@ namespace Pengu.MacOS.Activation;
 /// </summary>
 public sealed class RespawnAction : IActivationAction
 {
-    private readonly string      _coreDylibPath;
-    private readonly EventBus    _bus;
-    private readonly LcuxWatcher _watcher;
+    private readonly string                         _coreDylibPath;
+    private readonly EventBus                       _bus;
+    private readonly LcuxWatcher                    _watcher;
+    private readonly Action<string, string?>?       _onError;
 
-    public RespawnAction(string coreDylibPath, EventBus bus)
+    /// <summary>
+    /// Construct the action. <paramref name="onError"/> is invoked from
+    /// <see cref="SetActiveAsync"/> and the catch path when something the
+    /// user should know about goes wrong (core.dylib missing, respawn
+    /// failed). The host wires it to a native alert so failures aren't
+    /// silent if the hub UI swallows the <see cref="ActivationResult"/>.
+    /// </summary>
+    public RespawnAction(string coreDylibPath, EventBus bus, Action<string, string?>? onError = null)
     {
         _coreDylibPath = coreDylibPath;
         _bus           = bus;
+        _onError       = onError;
         _watcher       = new LcuxWatcher(Catch);
     }
 
@@ -58,6 +67,9 @@ public sealed class RespawnAction : IActivationAction
             if (!File.Exists(_coreDylibPath))
             {
                 Log.Warn("RespawnAction.SetActiveAsync: core.dylib not found at {0}", _coreDylibPath);
+                _onError?.Invoke(
+                    "Pengu can't activate",
+                    $"core.dylib was not found at:\n{_coreDylibPath}\n\nBuild the core (make -C core) and re-launch Pengu.");
                 return Task.FromResult(ActivationResult.Fail(
                     $"core.dylib not found at {_coreDylibPath}",
                     stage: "core-missing"));
@@ -163,6 +175,9 @@ public sealed class RespawnAction : IActivationAction
             // Best-effort: SIGCONT the original so it can run unmodified.
             // User sees LCUX without Pengu hooks; better than a stuck process.
             Signals.kill(pid, Signals.SIGCONT);
+            _onError?.Invoke(
+                "Pengu activation failed",
+                $"Could not inject into LCUX (pid {pid}):\n{ex.Message}\n\nLeague will continue to run without Pengu hooks for this session.");
         }
     }
 }

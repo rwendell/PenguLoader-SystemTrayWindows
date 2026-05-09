@@ -26,8 +26,9 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
     /// <c>window.webkit.messageHandlers.pengu.postMessage(jsonString)</c>.</summary>
     private const string MessageHandlerName = "pengu";
 
-    private readonly WKWebView _webView;
-    private readonly NavigationLogger _navDelegate;
+    private readonly WKWebView          _webView;
+    private readonly NavigationLogger   _navDelegate;
+    private readonly JsDialogUIDelegate _uiDelegate;
 
     public event Action<string>? WebMessageReceivedAsJson;
 
@@ -91,6 +92,13 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
 
         _navDelegate = new NavigationLogger();
         _webView.NavigationDelegate = _navDelegate;
+
+        // Bridge JS alert/confirm/prompt to NSAlert. Without this, WKWebView
+        // silently drops window.alert() — unlike WebView2 which renders it
+        // natively. The hub uses alert() for activation errors etc., so
+        // wiring this here is what makes hub's existing UX work on macOS.
+        _uiDelegate = new JsDialogUIDelegate();
+        _webView.UIDelegate = _uiDelegate;
     }
 
     public void Navigate(string url)
@@ -210,6 +218,94 @@ internal sealed class WkWebViewHost : NSObject, IBrowserHost, IWKScriptMessageHa
           });
         })();
         """;
+
+    /// <summary>
+    /// WKUIDelegate that bridges JS dialog primitives (<c>window.alert</c>,
+    /// <c>window.confirm</c>, <c>window.prompt</c>) to native NSAlert. Without
+    /// these implementations, WKWebView silently drops the calls — different
+    /// from WebView2 which renders them natively. The hub already calls
+    /// <c>alert(...)</c> for activation failures etc.; implementing this
+    /// makes those calls work without any hub-side changes.
+    /// </summary>
+    private sealed class JsDialogUIDelegate : WKUIDelegate
+    {
+        public override void RunJavaScriptAlertPanel(
+            WKWebView webView, string message, WKFrameInfo frame, Action completionHandler)
+        {
+            try
+            {
+                using var alert = new NSAlert
+                {
+                    MessageText     = "Pengu",
+                    InformativeText = message ?? string.Empty,
+                    AlertStyle      = NSAlertStyle.Informational,
+                };
+                alert.AddButton("OK");
+                alert.RunModal();
+            }
+            finally
+            {
+                // MUST always call the completion handler — JS execution is
+                // suspended until we do.
+                completionHandler();
+            }
+        }
+
+        public override void RunJavaScriptConfirmPanel(
+            WKWebView webView, string message, WKFrameInfo frame, Action<bool> completionHandler)
+        {
+            bool ok = false;
+            try
+            {
+                using var alert = new NSAlert
+                {
+                    MessageText     = "Pengu",
+                    InformativeText = message ?? string.Empty,
+                    AlertStyle      = NSAlertStyle.Informational,
+                };
+                alert.AddButton("OK");
+                alert.AddButton("Cancel");
+                ok = alert.RunModal() == (long)NSAlertButtonReturn.First;
+            }
+            finally
+            {
+                completionHandler(ok);
+            }
+        }
+
+        public override void RunJavaScriptTextInputPanel(
+            WKWebView webView, string prompt, string? defaultText, WKFrameInfo frame,
+            Action<string> completionHandler)
+        {
+            // The bound API surfaces a non-nullable result, but the underlying
+            // semantics in WebKit allow signaling cancel via empty/null. We
+            // pass empty string on cancel (the common JS prompt() convention
+            // is to treat falsy as cancellation upstream).
+            string result = string.Empty;
+            try
+            {
+                using var alert = new NSAlert
+                {
+                    MessageText     = "Pengu",
+                    InformativeText = prompt ?? string.Empty,
+                    AlertStyle      = NSAlertStyle.Informational,
+                };
+                using var input = new NSTextField(new CGRect(0, 0, 280, 22))
+                {
+                    StringValue = defaultText ?? string.Empty,
+                };
+                alert.AccessoryView = input;
+                alert.AddButton("OK");
+                alert.AddButton("Cancel");
+                if (alert.RunModal() == (long)NSAlertButtonReturn.First)
+                    result = input.StringValue ?? string.Empty;
+            }
+            finally
+            {
+                completionHandler(result);
+            }
+        }
+    }
 
     private sealed class NavigationLogger : WKNavigationDelegate
     {

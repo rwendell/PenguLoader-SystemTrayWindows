@@ -152,7 +152,13 @@ public sealed partial class MacOSHost : IHost
         // Universal mode: kill-and-respawn LCUX with DYLD_INSERT_LIBRARIES.
         // OnDemand fallback (legacy libEGL patch) is intentionally not
         // registered — Universal is the only supported mode on macOS.
-        registry.Register(new Pengu.MacOS.Activation.RespawnAction(CoreDylibPath, bus));
+        // onError → native NSAlert so users see "core.dylib missing" /
+        // "respawn failed" failures even if the hub UI swallows the
+        // ActivationResult.
+        registry.Register(new Pengu.MacOS.Activation.RespawnAction(
+            CoreDylibPath,
+            bus,
+            onError: Pengu.MacOS.Native.Alerts.ShowError));
 
         // Menubar status item — required on macOS so the daemon stays
         // accessible after the user closes the hub window.
