@@ -1,6 +1,7 @@
 import { Component, createMemo, createSignal, For } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { useRoot } from '~/lib/root'
+import { Themes, themeId, setTheme, themeSwatchStyle } from '~/lib/theme'
 
 import { TabClient } from './Tab.Client'
 import { TabPengu } from './Tab.Pengu'
@@ -19,6 +20,12 @@ export const Settings: Component = () => {
 
   const currenTab = createMemo(() => Tabs[tabIndex()][1])
   const currenTabName = createMemo(() => Tabs[tabIndex()][0])
+
+  // Theme picker — setTheme persists to localStorage, updates the
+  // reactive `themeId` signal, and writes the CSS vars in one call.
+  // The active-swatch decoration reads `themeId()` so the highlight
+  // tracks live without a separate effect here.
+  const pickTheme = (id: string) => setTheme(id)
 
   return (
     <div
@@ -46,6 +53,28 @@ export const Settings: Component = () => {
               )}
             </For>
           </nav>
+
+          {/* Theme picker. mt-auto pushes to the bottom of the sidebar's
+              flex column. Each swatch is a button styled with its own
+              primary RGB; the active one shows a foreground-colored ring. */}
+          <div class="mt-auto">
+            <h3 class="text-neutral-500 text-xs uppercase tracking-wider mx-4 mb-2 font-semibold">Theme</h3>
+            <div class="flex gap-2 px-4">
+              <For each={Themes}>
+                {theme => (
+                  <button
+                    type="button"
+                    onClick={() => pickTheme(theme.id)}
+                    title={theme.name}
+                    aria-label={`Theme: ${theme.name}`}
+                    aria-pressed={themeId() === theme.id}
+                    class="size-4 rounded-full ring-1 ring-transparent ring-offset-2 ring-offset-card hover:ring-foreground/40 aria-pressed:ring-foreground transition-shadow"
+                    style={themeSwatchStyle(theme)}
+                  />
+                )}
+              </For>
+            </div>
+          </div>
         </div>
 
         <div class="flex flex-col flex-1 p-4 py-8 pr-1 pb-2">

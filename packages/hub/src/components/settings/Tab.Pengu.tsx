@@ -137,15 +137,15 @@ export const TabPengu: Component = () => {
               clarity rather than collapsing to a label. */}
           <RadioOption
             caption="Universal"
-            message="Apply to all League Clients via IFEO. Requires UAC once at install; survives across launches."
+            message="Apply to all League Clients. Requires UAC once at install; survives across launches."
             checked
             disabled
           />
         </Show>
         <Show when={window.isMac}>
           <RadioOption
-            caption="On-demand"
-            message="Apply to a specific League Client that you launch from the Riot Client. You have to keep Pengu running in background."
+            caption="Universal"
+            message="Apply to all League Clients. You have to keep Pengu running in background."
             disabled
             checked
           />

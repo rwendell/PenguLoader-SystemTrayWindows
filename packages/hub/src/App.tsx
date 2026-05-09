@@ -6,6 +6,10 @@ import { Appbar } from './components/Appbar'
 import { MainPage } from './pages/MainPage'
 
 import './App.css'
+// Side-effect import: the theme module reads localStorage and applies the
+// persisted accent to `:root` synchronously on first load, so the user's
+// saved palette is in place before this component renders.
+import './lib/theme'
 import 'tippy.js/dist/tippy.css'
 
 function App() {
@@ -24,8 +28,14 @@ function App() {
 
   return (
     <div class="h-screen flex flex-col">
+      {/* Soft ambient glow at the top of the hub. Stops come from the
+          active theme via `--bg-glow-stops` (see lib/theme.ts), so the
+          gradient hue follows the accent picker — blue / green / purple
+          / pink each get their own deep → bright → light walk in the
+          same family. Heavily blurred so it reads as a mood layer rather
+          than a defined shape. */}
       <div class="blur-[140px] h-[10rem] max-w-[40rem] absolute top-[10rem] z-10 pointer-events-none w-[-webkit-fill-available]">
-        <div class="w-full h-full bg-[linear-gradient(97.62deg,rgba(0,71,225,0.22),rgba(26,214,255,0.32),rgba(0,220,130,0.42))]">
+        <div class="w-full h-full bg-[linear-gradient(97.62deg,var(--bg-glow-stops))]">
         </div>
       </div>
       <Show when={ready()}>

@@ -10,8 +10,14 @@
     --card-foreground: 0 0% 95%;
     --popover: 0 0% 9%;
     --popover-foreground: 0 0% 95%;
-    --primary: 34 197 94;
-    --primary-foreground: 144.9 80.4% 10%;
+    /* Pengu accent: sky-400 (#38BDF8). Picked to match the bright cyan-blue
+       in the logo's beanie / belly trim. Drives Activator pill, Checkbox /
+       RadioButton tick, Button "default", and the UpdateBanner via
+       theme-derived classes (bg-primary, text-primary, border-primary). */
+    --primary: 56 189 248;
+    /* Dark slate foreground for legibility on the bright primary bg.
+       (~slate-900 with a faint blue tint.) */
+    --primary-foreground: 222 47% 11%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
@@ -22,7 +28,13 @@
     --destructive-foreground: 0 85.7% 97.3%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 142.4 71.8% 29.2%;
+    /* Focus ring tracks the primary accent. */
+    --ring: 199 94% 59%;
+    /* Three rgba() stops for the ambient blur gradient at the top of the
+       hub. lib/theme.ts overwrites this on theme change. The default value
+       here matches the Pengu Blue theme so the very first paint already
+       has the correct glow before applyTheme() runs. */
+    --bg-glow-stops: rgba(0,71,225,0.22), rgba(26,214,255,0.32), rgba(125,211,252,0.42);
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
