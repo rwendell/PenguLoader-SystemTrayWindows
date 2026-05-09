@@ -19,15 +19,24 @@
          and the LaunchAgent label "com.pengu.lol" used by auto-startup. -->
     <ApplicationId>com.pengu.lol</ApplicationId>
 
-    <!-- AOT off during early scaffolding; toggle back on after the shape stabilizes
-         (Phase F at the latest). The shared Directory.Build.props gates AOT on
-         IsAotCapable so we just opt out here. -->
-    <IsAotCapable>false</IsAotCapable>
+    <!-- AOT inherits from Directory.Build.props (PublishAot=true,
+         InvariantGlobalization=true, TrimMode=full, IlcOptimizationPreference=Size).
+         Per-RID native binaries are produced and lipo'd by the macOS workload
+         into a single universal binary inside Pengu.app/Contents/MacOS/Pengu. -->
 
-    <!-- Explicit RID prevents the macOS workload from emitting a fat .app
-         that includes both osx-arm64 and osx-x64 — Apple Silicon dev box only. -->
-    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <!-- Universal: build osx-arm64 + osx-x64 and combine via lipo. The macOS
+         SDK runs publish for each RID and stitches the resulting native
+         binaries into a single fat Mach-O inside the bundle.
+         RuntimeIdentifiers (plural) is the Xamarin.macOS-specific opt-in;
+         RuntimeIdentifier (singular) would lock to one arch. -->
+    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+
+    <!-- The macOS workload also produces a .pkg installer alongside the .app
+         bundle on Release publish. We ship both: the .pkg for "click to
+         install" UX, and the per-RID .app bundles (under bin/Release/.../{osx-arm64,osx-x64}/)
+         for "drag to /Applications" or sysadmin distribution. -->
+    <CreatePackage>true</CreatePackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -51,8 +60,24 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <!-- Hub bundle: Release-only. Mirror of Pengu.Windows.csproj BuildHubBundle. -->
-  <Target Name="BuildHubBundle" BeforeTargets="BeforeBuild"
+  <!-- Ship core.dylib inside the .app bundle's Contents/Resources/ so
+       MacOSHost.CoreModulePath resolves to the dylib RespawnAction injects
+       via DYLD_INSERT_LIBRARIES. Conditional on file existence so dotnet
+       build works in dev when core hasn't been built yet (the user can
+       drop it manually for testing). The CI workflow runs `make -C core
+       release` before publish, so this is satisfied at release time. -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)../../core/bin/core.dylib')">
+    <BundleResource Include="$(MSBuildThisFileDirectory)../../core/bin/core.dylib">
+      <Link>core.dylib</Link>
+    </BundleResource>
+  </ItemGroup>
+
+  <!-- Hub bundle: Release-only. Builds packages/hub/dist/ → app.dat → embeds
+       it as a managed resource so the published .app/.exe contains the hub
+       UI in-binary. AppDat.OpenEmbedded reads it back at runtime. No file
+       ships alongside the exe / inside the bundle's Resources. -->
+  <Target Name="BuildHubBundle"
+          BeforeTargets="CoreCompile"
           Condition="'$(Configuration)' == 'Release'">
     <Message Importance="high" Text="Pengu: building hub bundle (pnpm)" />
     <Exec Command="pnpm --filter @pengujs/hub build"
@@ -61,23 +86,11 @@
     <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)../../packages/hub/dist"
                   DestinationFile="$(IntermediateOutputPath)app.dat"
                   Overwrite="true" />
-  </Target>
-
-  <Target Name="CopyAppDatToOutput"
-          AfterTargets="CopyFilesToOutputDirectory"
-          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
-    <Copy SourceFiles="$(IntermediateOutputPath)app.dat"
-          DestinationFolder="$(OutDir)"
-          SkipUnchangedFiles="true" />
-  </Target>
-
-  <Target Name="PublishAppDat" AfterTargets="ComputeFilesToPublish"
-          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(IntermediateOutputPath)app.dat">
-        <RelativePath>app.dat</RelativePath>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      </ResolvedFileToPublish>
+      <EmbeddedResource Include="$(IntermediateOutputPath)app.dat">
+        <LogicalName>app.dat</LogicalName>
+        <Visible>false</Visible>
+      </EmbeddedResource>
     </ItemGroup>
   </Target>
 

@@ -39,39 +39,24 @@
   <!-- Release-only: build the SolidJS hub bundle and zip it into app.dat
        beside the published exe. Debug skips the zip and the host runs against
        the Vite dev server (set the dev URL via CLI). -->
-  <Target Name="BuildHubBundle" BeforeTargets="BeforeBuild"
+  <!-- Hub bundle: Release-only. Builds packages/hub/dist/ → app.dat → embeds
+       it as a managed resource so the AOT-published Pengu.exe contains the
+       hub UI in-binary. AppDat.OpenEmbedded reads it back at runtime. No
+       app.dat ships alongside the exe. -->
+  <Target Name="BuildHubBundle" BeforeTargets="CoreCompile"
           Condition="'$(Configuration)' == 'Release'">
     <Message Importance="high" Text="Pengu: building hub bundle (pnpm)" />
     <Exec Command="pnpm --filter @pengujs/hub build"
           WorkingDirectory="$(MSBuildThisFileDirectory)..\.." />
-    <!-- BeforeBuild fires before the SDK creates $(IntermediateOutputPath),
-         so the destination directory might not exist yet on a clean build. -->
     <MakeDir Directories="$(IntermediateOutputPath)" />
     <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)..\..\packages\hub\dist"
                   DestinationFile="$(IntermediateOutputPath)app.dat"
                   Overwrite="true" />
-  </Target>
-
-  <!-- Copy the generated app.dat into bin/. Can't use <None Include> at
-       static evaluation because the file doesn't exist yet; do it via a
-       target that runs after the SDK's output-copy step. -->
-  <Target Name="CopyAppDatToOutput"
-          AfterTargets="CopyFilesToOutputDirectory"
-          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
-    <Copy SourceFiles="$(IntermediateOutputPath)app.dat"
-          DestinationFolder="$(OutDir)"
-          SkipUnchangedFiles="true" />
-  </Target>
-
-  <!-- For dotnet publish: add app.dat to ResolvedFileToPublish so it lands
-       beside Pengu.exe in the publish output. -->
-  <Target Name="PublishAppDat" AfterTargets="ComputeFilesToPublish"
-          Condition="'$(Configuration)' == 'Release' AND Exists('$(IntermediateOutputPath)app.dat')">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(IntermediateOutputPath)app.dat">
-        <RelativePath>app.dat</RelativePath>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      </ResolvedFileToPublish>
+      <EmbeddedResource Include="$(IntermediateOutputPath)app.dat">
+        <LogicalName>app.dat</LogicalName>
+        <Visible>false</Visible>
+      </EmbeddedResource>
     </ItemGroup>
   </Target>
 

@@ -68,21 +68,22 @@ public sealed partial class MacOSHost : IHost
         IReadOnlyList<IJsInteropDispatcher> bridgeHandlers,
         EventBus bus)
     {
-        // Lazy-open app.dat (only used in packed builds; dev mode goes
-        // straight to the Vite server URL).
+        // Open app.dat from the embedded managed resource. Release builds
+        // ship the hub bundle inside the Pengu binary itself (no file alongside
+        // the exec or in Resources/); Debug builds skip the bundle entirely
+        // and rely on --dev=URL.
         if (AppEnv.DevUrl is null)
         {
-            var datPath = Path.Combine(ExeDirectory, "app.dat");
-            if (File.Exists(datPath))
+            try
             {
-                try
-                {
-                    _appDat = AppDat.Open(datPath);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Failed to open app.dat at {0}", datPath);
-                }
+                _appDat = AppDat.OpenEmbedded(typeof(MacOSHost).Assembly);
+                if (_appDat is null)
+                    Log.Warn("app.dat not embedded in assembly; running without bundle. " +
+                             "Either set --dev=<url> or rebuild Release.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to open embedded app.dat");
             }
         }
 
