@@ -108,7 +108,8 @@ public sealed class ConfigStore
             Language: map.Get("app", "language") ?? d.App.Language,
             PluginsDir: map.Get("app", "plugins_dir") ?? d.App.PluginsDir,
             DisabledPlugins: map.Get("app", "disabled_plugins") ?? d.App.DisabledPlugins,
-            ActivationMode: ParseMode(map.Get("app", "activation_mode"), d.App.ActivationMode));
+            ActivationMode: ParseMode(map.Get("app", "activation_mode"), d.App.ActivationMode),
+            AutoUpdateCheck: IniReader.ParseBool(map.Get("app", "auto_update_check"), d.App.AutoUpdateCheck));
 
         var client = new ConfigClient(
             UseHotkeys: IniReader.ParseBool(map.Get("client", "use_hotkeys"), d.Client.UseHotkeys),
@@ -140,6 +141,7 @@ public sealed class ConfigStore
         map.Set("app", "plugins_dir", app.PluginsDir);
         map.Set("app", "disabled_plugins", app.DisabledPlugins);
         map.Set("app", "activation_mode", ((int)app.ActivationMode).ToString());
+        map.Set("app", "auto_update_check", IniWriter.FormatBool(app.AutoUpdateCheck));
     }
 
     private static void ApplyClient(IniMap map, ConfigClient c)

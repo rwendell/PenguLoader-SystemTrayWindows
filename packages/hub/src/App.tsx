@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show } from 'solid-js'
 import { Config } from './lib/config'
+import { Updater } from './lib/updater'
 import { WelcomePage } from './pages/WelcomePage'
 import { Appbar } from './components/Appbar'
 import { MainPage } from './pages/MainPage'
@@ -14,6 +15,11 @@ function App() {
   onMount(async () => {
     setWelcome(!await Config.load())
     setReady(true)
+    // Fire-and-forget update check on launch when the user opted in. The
+    // result is held in Updater.available() and surfaced in Settings → Pengu.
+    if (Config.get('app', 'auto_update_check', true)) {
+      void Updater.check().catch(() => { /* surfaced via Updater.error() */ })
+    }
   })
 
   return (

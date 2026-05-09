@@ -7,6 +7,7 @@ const defaultConfig: ConfigSnapshot = {
     plugins_dir: '',
     disabled_plugins: '',
     activation_mode: ActivationMode.Universal,
+    auto_update_check: true,
   },
   client: {
     use_hotkeys: true,

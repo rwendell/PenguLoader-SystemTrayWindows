@@ -2,6 +2,7 @@ import { Component, Match, Switch } from 'solid-js'
 import { Settings } from '../components/settings'
 import { PluginGallery } from '../components/PluginGallery'
 import { PluginStore } from '../components/PluginStore'
+import { UpdateBanner } from '../components/UpdateBanner'
 import { useRoot } from '~/lib/root'
 
 export const MainPage: Component = () => {
@@ -17,6 +18,7 @@ export const MainPage: Component = () => {
         </Switch>
       </div>
       <Settings />
+      <UpdateBanner />
     </div>
   )
 }

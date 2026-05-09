@@ -19,10 +19,11 @@ public sealed record ConfigSnapshot(
     [property: JsonPropertyName("client")] ConfigClient Client);
 
 public sealed record ConfigApp(
-    [property: JsonPropertyName("language")]         string Language,
-    [property: JsonPropertyName("plugins_dir")]      string PluginsDir,
-    [property: JsonPropertyName("disabled_plugins")] string DisabledPlugins,
-    [property: JsonPropertyName("activation_mode")]  ActivationMode ActivationMode);
+    [property: JsonPropertyName("language")]          string Language,
+    [property: JsonPropertyName("plugins_dir")]       string PluginsDir,
+    [property: JsonPropertyName("disabled_plugins")]  string DisabledPlugins,
+    [property: JsonPropertyName("activation_mode")]   ActivationMode ActivationMode,
+    [property: JsonPropertyName("auto_update_check")] bool AutoUpdateCheck);
 
 public sealed record ConfigClient(
     [property: JsonPropertyName("use_hotkeys")]      bool UseHotkeys,
@@ -41,7 +42,8 @@ public static class ConfigDefaults
             Language: "en",
             PluginsDir: string.Empty,
             DisabledPlugins: string.Empty,
-            ActivationMode: ActivationMode.Universal),
+            ActivationMode: ActivationMode.Universal,
+            AutoUpdateCheck: true),
         Client: new ConfigClient(
             UseHotkeys: true,
             OptimizedClient: true,

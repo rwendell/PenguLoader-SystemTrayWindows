@@ -42,5 +42,7 @@ namespace Pengu;
 [JsonSerializable(typeof(HostInfo))]
 [JsonSerializable(typeof(DirEntry))]
 [JsonSerializable(typeof(DirEntry[]))]
+[JsonSerializable(typeof(UpdateInfo))]
+[JsonSerializable(typeof(GithubRelease))]
 [JsonSerializable(typeof(WindowState))]
 public partial class PenguJsonContext : JsonSerializerContext;

@@ -37,6 +37,7 @@ export interface ConfigSnapshot {
     plugins_dir: string
     disabled_plugins: string
     activation_mode: ActivationMode
+    auto_update_check: boolean
   }
   client: {
     use_hotkeys: boolean
@@ -95,6 +96,19 @@ export interface HostInfo {
 }
 
 export interface DirEntry { name: string; isDir: boolean }
+
+/**
+ * Result of `pengu.update.check()`. Null when the running build is on the
+ * latest published release.
+ */
+export interface UpdateInfo {
+  /** Release tag, e.g. "v1.2.0". */
+  tag: string
+  /** Release body (markdown from the GitHub release). */
+  body: string
+  /** Web URL to open in the system browser when the user clicks through. */
+  url: string
+}
 
 // ---------- bridge surface ----------
 
@@ -167,6 +181,15 @@ export interface PenguBridge {
      * pass an array (not rest-params). Empty input -> empty string.
      */
     join(parts: string[]): Promise<string>
+  }
+
+  update: {
+    /**
+     * Check the upstream releases endpoint. Resolves to UpdateInfo when a
+     * newer release is published, or null when the current build is up-to-
+     * date. Rejects on network / HTTP failure.
+     */
+    check(): Promise<UpdateInfo | null>
   }
 }
 
