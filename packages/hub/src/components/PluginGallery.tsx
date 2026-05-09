@@ -44,7 +44,7 @@ const PluginCard: Component<PluginInfo> = (props) => {
         <Show when={props.description}>
           <p class="text-sm leading-5 text-muted-foreground line-clamp-2">{props.description}</p>
         </Show>
-        <p class="text-xs text-muted-foreground/60 break-all">@plugins/{props.path}</p>
+        <p class="text-xs text-muted-foreground/60 break-all"># {props.path}</p>
         <Show when={props.author || props.link}>
           <div class="flex items-center justify-between pt-1 mt-1 border-t border-foreground/5">
             <Show when={props.author} fallback={<span />}>

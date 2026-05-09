@@ -47,7 +47,7 @@ export const TabPengu: Component = () => {
         <span
           class="block text-base text-neutral-200 px-3 py-1 hover:bg-neutral-400/20 rounded-md"
           onClick={changePluginsDir}>
-          {app.plugins_dir() || './plugins'}
+          {app.plugins_dir() || Config.basePath('plugins')}
         </span>
       </OptionSet>
 

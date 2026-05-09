@@ -40,8 +40,16 @@ export const Config = new class {
   private snapshot: ConfigSnapshot = structuredClone(defaultConfig)
   private loaded = false
 
+  /**
+   * Compose a path under the host data root, using the OS-native separator
+   * (`\` on Windows, `/` on macOS). The returned string is intended for
+   * display and for round-tripping back to the host (which accepts either
+   * separator on Win32 dialogs), so we keep it native rather than
+   * normalizing to forward-slash.
+   */
   basePath(...parts: string[]): string {
-    return [this.baseDir, ...parts].join('/')
+    const sep = window.isMac ? '/' : '\\'
+    return [this.baseDir, ...parts].join(sep)
   }
 
   /**
@@ -50,7 +58,7 @@ export const Config = new class {
    * Always populates the in-memory snapshot.
    */
   async load(): Promise<boolean> {
-    this.baseDir = (await pengu.config.getRoot()).replace(/\\/g, '/')
+    this.baseDir = await pengu.config.getRoot()
     this.snapshot = await pengu.config.read()
     this.loaded = true
     return true
