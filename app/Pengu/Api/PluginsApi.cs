@@ -41,18 +41,44 @@ public partial class PluginsApi
 
     /// <summary>Toggle a plugin's enabled state, returning the new state.
     /// Resolves the path via discovery (so the hash matches the canonical
-    /// form), updates the disabled csv, and flushes config.</summary>
+    /// form), updates the disabled csv, and flushes config.
+    ///
+    /// <para>v1.1.6 compat: if the on-disk file is the legacy
+    /// <c>.js_</c> / <c>index.js_</c> rename-to-disable form, enabling renames
+    /// it to the live form (and defensively clears the hash from the csv).
+    /// Subsequent toggles on the same plugin run pure hash add/remove. We
+    /// never produce a legacy <c>_</c> file here — disabling always uses the
+    /// hash csv.</para></summary>
     [JsInvokable]
     public Task<bool> ToggleEnabled(string path)
     {
         var snapshot = _config.Read();
+        var pluginsDir = ResolvePluginsDir(snapshot.App.PluginsDir);
         var disabled = DisabledList.Parse(snapshot.App.DisabledPlugins);
 
         // Path is the canonical form already (matches PluginInfo.Path), so we
         // hash it directly. lowercase + Fnv1a matches DisabledList semantics.
         var hash = Fnv1a.Hash(path.ToLowerInvariant());
+
+        var (entryPath, isLegacyDisabled) = ResolveEntryPath(pluginsDir, path);
+
         bool enabledNow;
-        if (disabled.Contains(hash))
+        if (isLegacyDisabled)
+        {
+            var live = entryPath[..^1]; // strip trailing _
+            try
+            {
+                File.Move(entryPath, live);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Toggle: failed to rename {0} -> {1}: {2}", entryPath, live, ex.Message);
+                return Task.FromResult(false);
+            }
+            disabled.Remove(hash);
+            enabledNow = true;
+        }
+        else if (disabled.Contains(hash))
         {
             disabled.Remove(hash);
             enabledNow = true;
@@ -69,8 +95,26 @@ public partial class PluginsApi
         };
         _config.Write(patched);
 
-        Log.Debug("Toggled plugin {0} -> enabled={1}", path, enabledNow);
+        Log.Debug("Toggled plugin {0} -> enabled={1}{2}",
+                  path, enabledNow, isLegacyDisabled ? " (legacy rename)" : "");
         return Task.FromResult(enabledNow);
+    }
+
+    /// <summary>
+    /// Resolve a canonical plugin path to its on-disk entry. Prefers the live
+    /// <c>.js</c> / <c>index.js</c> form; falls back to the legacy
+    /// <c>.js_</c> / <c>index.js_</c> if only that exists. Returns the
+    /// best-guess live path with <c>isLegacy=false</c> if neither exists, so
+    /// callers can fail loud rather than silently consume a no-op.
+    /// </summary>
+    private static (string entryPath, bool isLegacy) ResolveEntryPath(string pluginsDir, string canonicalPath)
+    {
+        var native = canonicalPath.Replace('/', System.IO.Path.DirectorySeparatorChar);
+        var live = System.IO.Path.Combine(pluginsDir, native);
+        if (File.Exists(live)) return (live, false);
+        var legacy = live + "_";
+        if (File.Exists(legacy)) return (legacy, true);
+        return (live, false);
     }
 
     [JsInvokable]

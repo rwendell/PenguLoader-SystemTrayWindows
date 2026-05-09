@@ -1,15 +1,9 @@
-import { Component, createSignal, onMount } from 'solid-js'
+import { Component } from 'solid-js'
 import { useRoot } from '~/lib/root'
-import { StoreManager } from '~/lib/store'
 
 export const PluginStore: Component = () => {
 
   const { setStore } = useRoot()
-  // const [loading, setLoading] = createSignal(true)
-
-  // onMount(async () => {
-  //   const plugins = await StoreManager.fetchPlugins()
-  // })
 
   return (
     <div class="h-full flex flex-col p-4">

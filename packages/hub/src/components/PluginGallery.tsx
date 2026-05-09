@@ -6,9 +6,9 @@ import { useConfig } from '~/lib/config'
 import { useRoot } from '~/lib/root'
 
 const PluginCard: Component<PluginInfo> = (props) => {
-  const [enabled, setEnabled] = createSignal(PluginManager.isEnabled(props.hash))
+  const [enabled, setEnabled] = createSignal(props.enabled)
   const toggle = () => {
-    PluginManager.toggleState(props.hash).then(setEnabled)
+    PluginManager.toggleState(props.path).then(setEnabled)
   }
   return (
     <label draggable="false" class="flex flex-col gap-2 overflow-hidden shadow-md rounded-md border-solid bg-card border-[1px] border-neutral-600 hover:border-neutral-400">
