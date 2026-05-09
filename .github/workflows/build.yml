@@ -37,7 +37,7 @@ jobs:
       - name: Prepare environment variables
         run: |
           echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          echo "APP_VERSION=$(node -p "require('./packages/hub/package.json').version")" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
 
       # ─── Toolchains (shared) ────────────────────────────────────────────
       # .NET 10 SDK for both Pengu.Windows (AOT) and Pengu.MacOS (workload).
