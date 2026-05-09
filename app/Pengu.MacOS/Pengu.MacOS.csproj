@@ -73,11 +73,25 @@
   </ItemGroup>
 
   <!-- Hub bundle: Release-only. Builds packages/hub/dist/ → app.dat → embeds
-       it as a managed resource so the published .app/.exe contains the hub
-       UI in-binary. AppDat.OpenEmbedded reads it back at runtime. No file
-       ships alongside the exe / inside the bundle's Resources. -->
+       it as a managed resource so the published .app contains the hub UI
+       in-binary. AppDat.OpenEmbedded reads it back at runtime. No file
+       ships alongside the exe / inside the bundle's Resources.
+
+       The split — static EmbeddedResource ItemGroup + BuildHubBundle target
+       at BeforeTargets="BeforeBuild" — is required because the SDK's
+       CreateManifestResourceNames runs as a CoreCompile *dependency*,
+       BEFORE any BeforeTargets="CoreCompile" target fires. Adding to
+       @(EmbeddedResource) from inside a target at that point is silently
+       dropped. Static declaration + early-build file generation: csc reads
+       the file during CoreCompile, by which time it exists. -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <EmbeddedResource Include="$(IntermediateOutputPath)app.dat"
+                      LogicalName="app.dat"
+                      Visible="false" />
+  </ItemGroup>
+
   <Target Name="BuildHubBundle"
-          BeforeTargets="CoreCompile"
+          BeforeTargets="BeforeBuild"
           Condition="'$(Configuration)' == 'Release'">
     <Message Importance="high" Text="Pengu: building hub bundle (pnpm)" />
     <Exec Command="pnpm --filter @pengujs/hub build"
@@ -86,12 +100,6 @@
     <ZipDirectory SourceDirectory="$(MSBuildThisFileDirectory)../../packages/hub/dist"
                   DestinationFile="$(IntermediateOutputPath)app.dat"
                   Overwrite="true" />
-    <ItemGroup>
-      <EmbeddedResource Include="$(IntermediateOutputPath)app.dat">
-        <LogicalName>app.dat</LogicalName>
-        <Visible>false</Visible>
-      </EmbeddedResource>
-    </ItemGroup>
   </Target>
 
 </Project>
