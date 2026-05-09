@@ -33,6 +33,7 @@ namespace Pengu.Plugins;
 /// </summary>
 public sealed class PluginDiscovery
 {
+    private static readonly Regex NameTag        = MakeTag("name");
     private static readonly Regex DescriptionTag = MakeTag("description");
     private static readonly Regex AuthorTag      = MakeTag("author");
     private static readonly Regex LinkTag        = MakeTag("link");
@@ -146,10 +147,15 @@ public sealed class PluginDiscovery
         if (isLegacyDisabled) rel = rel[..^1];
 
         var hash = Fnv1a.Hash(rel.ToLowerInvariant());
-        var (description, author, link) = ReadJsDoc(entryPath);
+        var (jsdocName, description, author, link) = ReadJsDoc(entryPath);
+
+        // @name in the entry's JSDoc wins over the filename / folder name when
+        // present. Lets plugin authors choose a display title independent of
+        // their on-disk slug. Whitespace-only @name is ignored.
+        var finalName = !string.IsNullOrWhiteSpace(jsdocName) ? jsdocName! : displayName;
 
         return new PluginInfo(
-            Name: displayName,
+            Name: finalName,
             Path: rel,
             Hash: hash,
             Author: author,
@@ -158,7 +164,7 @@ public sealed class PluginDiscovery
             Enabled: !isLegacyDisabled && !disabledHashes.Contains(hash));
     }
 
-    private static (string? description, string? author, string? link) ReadJsDoc(string path)
+    private static (string? name, string? description, string? author, string? link) ReadJsDoc(string path)
     {
         try
         {
@@ -179,6 +185,7 @@ public sealed class PluginDiscovery
                 return m.Success ? m.Groups[1].Value.Trim() : null;
             }
 
+            var name        = Find(NameTag);
             var description = Find(DescriptionTag);
             var author      = Find(AuthorTag);
             var link        = Find(LinkTag);
@@ -194,11 +201,11 @@ public sealed class PluginDiscovery
             if (link is { Length: > 0 } && !link.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 link = null;
 
-            return (description, author, link);
+            return (name, description, author, link);
         }
         catch
         {
-            return (null, null, null);
+            return (null, null, null, null);
         }
     }
 }

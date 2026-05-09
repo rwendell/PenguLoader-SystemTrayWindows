@@ -139,16 +139,26 @@ public partial class PluginsApi
     }
 
     /// <summary>
-    /// Fetch the upstream plugin store registry. Currently a stub: the
-    /// registry remains a placeholder per the design notes
-    /// (no install automation planned), so we return an empty list rather
-    /// than pulling in a YAML parser. When/if the registry becomes real,
-    /// implement here without changing the JS surface.
+    /// Fetch the upstream plugin store registry as raw YAML text. The hub
+    /// parses it client-side (the bridge wire stays string so we don't drag
+    /// a YAML library into the AOT host build). Failures bubble as bridge
+    /// errors so the hub can render an error state without a separate
+    /// "loaded but empty" code path.
     /// </summary>
     [JsInvokable]
-    public Task<StorePlugin[]> FetchStoreRegistry()
+    public async Task<string> FetchStoreRegistry()
     {
-        return Task.FromResult(Array.Empty<StorePlugin>());
+        const string url = "https://raw.githack.com/PenguLoader/plugin-store/main/registry/plugins.yml";
+        using var http = new HttpClient
+        {
+            // Keep the timeout tight — the hub blocks on this for the
+            // store tab and we'd rather show an error than a long spinner.
+            Timeout = TimeSpan.FromSeconds(10),
+        };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd($"Pengu/{AppEnv.AppVersion}");
+        var resp = await http.GetAsync(url).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
     }
 
     /// <summary>
