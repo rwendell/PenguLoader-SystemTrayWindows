@@ -15,8 +15,8 @@ const bumpAnimationKeyframes = [
 
 export function Animator(props) {
 
-  let outerRef: HTMLDivElement;
-  let innerRef: HTMLDivElement;
+  let outerRef!: HTMLDivElement;
+  let innerRef!: HTMLDivElement;
 
   const resolved = children(() => props.children);
 

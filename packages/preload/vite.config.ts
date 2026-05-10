@@ -4,7 +4,6 @@ import { defineConfig } from 'vite';
 import { build } from 'esbuild';
 
 // Vite plugins
-import mkcert from 'vite-plugin-mkcert';
 import solidPlugin from 'vite-plugin-solid';
 import bundleCssInJs from 'vite-plugin-css-injected-by-js';
 import viteRestart from 'vite-plugin-restart';
@@ -20,7 +19,6 @@ export default defineConfig(({ command, mode }) => {
   return {
     publicDir: false,
     server: {
-      https: true,
       port: port
     },
     esbuild: {
@@ -44,7 +42,6 @@ export default defineConfig(({ command, mode }) => {
       }
     },
     plugins: [
-      mkcert(),
       solidPlugin(),
       bundleCssInJs({
         topExecutionPriority: false,
@@ -65,7 +62,7 @@ export default defineConfig(({ command, mode }) => {
         enforce: 'post',
         transform(code, id) {
           if (/\.(ts|tsx)$/i.test(id)) return;
-          return code.replace(/\/src\//g, `https://localhost:${port}/src/`)
+          return code.replace(/\/src\//g, `http://localhost:${port}/src/`)
         },
         async configResolved() {
           await build({
@@ -95,12 +92,12 @@ export default defineConfig(({ command, mode }) => {
 });
 
 function generateDevLoader(port: number) {
-  const template = function (port) {
+  const template = function (port: number) {
     document.addEventListener('DOMContentLoaded', async () => {
       // @ts-ignore
-      await import(`https://localhost:${port}/@vite/client`);
+      await import(`http://localhost:${port}/@vite/client`);
       // @ts-ignore
-      await import(`https://localhost:${port}/src/views/index.tsx`);
+      await import(`http://localhost:${port}/src/views/index.tsx`);
     });
   }
   return `!(${template.toString()})(${port});`;

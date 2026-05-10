@@ -3,7 +3,7 @@ import { useRoot } from './root';
 import { _t } from '../../lib/i18n';
 
 export function SearchBar() {
-  let input: HTMLInputElement;
+  let input!: HTMLInputElement;
   const { search, setSearch, setActiveIndex } = useRoot();
 
   onMount(() => {

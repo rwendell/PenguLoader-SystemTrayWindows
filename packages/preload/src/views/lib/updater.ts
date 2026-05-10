@@ -1,5 +1,3 @@
-import snarkdown from 'snarkdown';
-
 const GITHUB_REPO = 'PenguLoader/PenguLoader';
 
 function parseVersion(version: string) {
@@ -21,7 +19,6 @@ export async function fetchUpdate() {
       return {
         old: currentVersion,
         version: latestVersion,
-        changelog: snarkdown(release['body'])
       };
     }
   } catch (err) {

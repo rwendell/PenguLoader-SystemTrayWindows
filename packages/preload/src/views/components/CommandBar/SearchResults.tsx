@@ -15,7 +15,7 @@ function evalAction(action: Action, path: string | string[]): string {
 
 export function SearchResults() {
 
-  let containerRef: HTMLDivElement;
+  let containerRef!: HTMLDivElement;
   const { search, actions, activeIndex, setActiveIndex, setVisualState, hidden } = useRoot();
 
   const filteredItems = createMemo(() => {
