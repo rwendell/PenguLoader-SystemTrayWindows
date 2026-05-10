@@ -1,10 +1,12 @@
 import { Component, createSignal, Match, onMount, Show, Switch } from 'solid-js'
 import { Config, useConfig } from '~/lib/config'
 import { CheckOption, OptionSet, RadioOption } from './templates'
+import { ComboBox } from '~/components/ui/ComboBox'
 import { Startup } from '~/lib/startup'
 import { pengu } from '~/lib/pengu'
 import { Shell } from '~/lib/shell'
 import { Updater } from '~/lib/updater'
+import { useI18n } from '~/lib/i18n'
 
 /**
  * Update controls. Two affordances:
@@ -105,6 +107,7 @@ const LaunchSettings: Component = () => {
 export const TabPengu: Component = () => {
 
   const { app } = useConfig()
+  const i18n = useI18n()
 
   const changePluginsDir = async () => {
     const dir = await pengu.host.pickFolder(Config.basePath())
@@ -113,8 +116,23 @@ export const TabPengu: Component = () => {
     }
   }
 
+  // Language picker mirrors the WelcomePage step-1 control. Same setter
+  // path: switch the runtime i18n instance, then persist to config.
+  const selectLang = async (id: string) => {
+    i18n.switchTo(id)
+    await app.language(id)
+  }
+
   return (
     <div class="space-y-4">
+
+      <OptionSet name="Language">
+        <ComboBox
+          items={i18n.languages}
+          selected={app.language()}
+          onSelect={selectLang}
+        />
+      </OptionSet>
 
       <OptionSet name="Plugins Folder">
         <span

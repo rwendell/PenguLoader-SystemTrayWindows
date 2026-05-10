@@ -7,7 +7,15 @@
         "welcome": "Welcome",
         "choose_lang": "Choose your language",
         "accept_tos": "Accept terms and conditions",
-        "tos_content": "Pengu Loader is SAFE, but using exploit plugins could get you banned.",
+        "tos_content": "Pengu Loader is a free, open-source modification for the League of Legends Client. It runs entirely inside the Client's out-of-game UI (lobby, profile, store, post-game, etc.) and never touches the in-game executable — so it cannot affect gameplay, match outcomes, or competitive fairness. By installing and using it, you agree to the following:\n\n1. Not affiliated with Riot Games. Pengu Loader is an independent community project. It is not endorsed by, sponsored by, or affiliated with Riot Games, Inc. or its products.\n\n2. No warranty. The software is provided \"as is\", without warranty of any kind. The authors are not liable for any damage to your system, account, or data resulting from its use.\n\n3. Account risk is yours. Riot's Terms of Service prohibit unauthorized modification of the Client. Even though Pengu is sandboxed to the out-of-game UI and never reaches in-game code, Riot Games retains the right to action your account at their sole discretion. By using Pengu, you accept this risk.\n\n4. Plugins are third-party code. Plugins run inside the League Client UX and have access to the local LCU API — the REST / WebSocket endpoint the Client uses to talk to itself. You are responsible for vetting any plugin before installing. Avoid plugins from untrusted sources, and never install plugins that abuse the LCU API to automate Client actions or surface privileged data — those are exploits and are very likely to get your account actioned.\n\n5. No exploit support. Pengu Loader does not endorse or support plugins that abuse the LCU API for automation (auto-accept queue, auto-pick, auto-ban, dodging-on-detect, etc.) or to expose data the Client doesn't intend you to see at that point. Such plugins violate Riot's Terms of Service and are off-platform.\n\n6. Privacy. Pengu Loader itself collects no telemetry and sends no analytics. Plugins may make their own network requests; review each plugin's source code before installing.\n\n7. Open source. Pengu Loader is licensed under the MIT License. You are free to inspect, modify, and redistribute the source. Plugins carry their own licenses; respect them.\n\nBy checking the box below, you confirm that you have read and understood these terms, and that you accept full responsibility for your use of Pengu Loader and any plugins you install.",
+        "tour_tos_title": "Terms & Conditions",
+        "tour_activation_title": "Activation",
+        "tour_activation_body": "Click the green Activate button in the top bar to enable Pengu.\n\nThe first time, Windows will ask for admin permission (UAC) — this is needed to register Pengu with the League Client. Once activated, restart your League Client for changes to take effect.",
+        "tour_plugins_title": "Plugins",
+        "tour_plugins_body": "Pengu loads JavaScript plugins from your plugins folder. Drop .js files directly, or browse the Plugin Store for community plugins.\n\nOpen the plugins folder anytime from Settings → Pengu Loader. Plugins run only inside the Client UI — they never affect gameplay or fairness.",
+        "tour_continue": "Continue",
+        "tour_back": "Back",
+        "tour_read_tos": "Read Terms & Conditions",
         "get_started": "Get Started"
       }
     },
@@ -17,8 +25,16 @@
       "translations": {
         "welcome": "Xin Chào",
         "choose_lang": "Chọn ngôn ngữ",
-        "accept_tos": "Tôi đồng với ý các điều khoản",
-        "tos_content": "Pengu Loader an toàn, nhưng sử dụng các plugin khai thác lỗ hổng có thể bị khóa tài khoản.",
+        "accept_tos": "Tôi đồng ý với các điều khoản",
+        "tos_content": "Pengu Loader là phần mềm chỉnh sửa miễn phí, mã nguồn mở dành cho Client Liên Minh Huyền Thoại (League of Legends Client). Pengu chỉ chạy bên trong giao diện ngoài-trận của Client (phòng chờ, hồ sơ, cửa hàng, sau trận, v.v.) và không bao giờ chạm tới phần in-game — nên không thể ảnh hưởng đến lối chơi, kết quả trận hay tính công bằng. Khi cài đặt và sử dụng, bạn đồng ý với các điều khoản sau:\n\n1. Không liên kết với Riot Games. Pengu Loader là dự án cộng đồng độc lập, không được Riot Games, Inc. tài trợ, chứng thực hay liên kết.\n\n2. Không bảo hành. Phần mềm được cung cấp \"nguyên trạng\", không kèm bất kỳ bảo hành nào. Tác giả không chịu trách nhiệm cho bất kỳ thiệt hại nào tới hệ thống, tài khoản hay dữ liệu của bạn khi sử dụng.\n\n3. Bạn tự chịu rủi ro tài khoản. Điều khoản của Riot Games cấm chỉnh sửa Client trái phép. Dù Pengu chỉ hoạt động trong giao diện ngoài-trận và không bao giờ chạm tới mã nguồn in-game, Riot Games vẫn có quyền xử lý tài khoản của bạn theo quyết định riêng. Khi sử dụng Pengu, bạn chấp nhận rủi ro này.\n\n4. Plugin là mã nguồn của bên thứ ba. Plugin chạy bên trong League Client UX và có quyền truy cập LCU API cục bộ — REST / WebSocket nội bộ mà Client dùng để giao tiếp với chính nó. Bạn có trách nhiệm kiểm tra kỹ mọi plugin trước khi cài. Tránh các plugin từ nguồn không rõ, và đừng bao giờ cài plugin lạm dụng LCU API để tự động hóa thao tác Client hoặc lộ dữ liệu đặc quyền — đó là exploit và rất dễ khiến tài khoản bị xử lý.\n\n5. Không hỗ trợ exploit. Pengu không khuyến khích hay hỗ trợ các plugin lạm dụng LCU API cho mục đích tự động hóa (auto-accept queue, auto-pick, auto-ban, dodge-khi-bị-soi, v.v.) hoặc để hiện dữ liệu mà Client không có ý cho bạn thấy ở thời điểm đó. Các plugin như vậy vi phạm Điều khoản của Riot Games và nằm ngoài phạm vi hỗ trợ.\n\n6. Quyền riêng tư. Bản thân Pengu Loader không thu thập dữ liệu thống kê và không gửi phân tích. Plugin có thể tự gửi yêu cầu mạng; hãy kiểm tra mã nguồn từng plugin trước khi cài.\n\n7. Mã nguồn mở. Pengu Loader được phát hành theo giấy phép MIT. Bạn có quyền xem, chỉnh sửa và phân phối lại mã nguồn. Plugin có giấy phép riêng; hãy tôn trọng chúng.\n\nKhi tích vào ô bên dưới, bạn xác nhận đã đọc và hiểu các điều khoản này, đồng thời chịu hoàn toàn trách nhiệm về việc sử dụng Pengu Loader và bất kỳ plugin nào bạn cài đặt.",
+        "tour_tos_title": "Điều khoản & Cam kết",
+        "tour_activation_title": "Kích hoạt",
+        "tour_activation_body": "Bấm nút Activate màu xanh ở thanh trên cùng để bật Pengu.\n\nLần đầu, Windows sẽ yêu cầu quyền admin (UAC) — cần thiết để đăng ký Pengu với League Client. Sau khi kích hoạt, hãy khởi động lại League Client để thay đổi có hiệu lực.",
+        "tour_plugins_title": "Plugin",
+        "tour_plugins_body": "Pengu tải các plugin JavaScript từ thư mục plugins. Bỏ file .js trực tiếp vào, hoặc duyệt Plugin Store để tìm plugin từ cộng đồng.\n\nMở thư mục plugin bất cứ lúc nào từ Settings → Pengu Loader. Plugin chỉ chạy bên trong giao diện Client — không bao giờ ảnh hưởng đến lối chơi hay tính công bằng.",
+        "tour_continue": "Tiếp tục",
+        "tour_back": "Quay lại",
+        "tour_read_tos": "Đọc lại điều khoản",
         "get_started": "Bắt Đầu"
       }
     }

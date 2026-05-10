@@ -1,6 +1,9 @@
 import { createSignal, onMount, Show } from 'solid-js'
 import { Config } from './lib/config'
 import { Updater } from './lib/updater'
+import { markTourCompleted } from './lib/tour'
+import { useRoot } from './lib/root'
+import { useI18n } from './lib/i18n'
 import { WelcomePage } from './pages/WelcomePage'
 import { Appbar } from './components/Appbar'
 import { MainPage } from './pages/MainPage'
@@ -14,10 +17,18 @@ import 'tippy.js/dist/tippy.css'
 
 function App() {
   const [ready, setReady] = createSignal(false)
-  const [welcome, setWelcome] = createSignal(true)
+  // The welcome signal lives in root so the Settings → About "Read ToS"
+  // handler can flip it back on without a custom event bus. Initial value
+  // is set in lib/root.ts from a sync localStorage read.
+  const { welcome, setWelcome } = useRoot()
 
   onMount(async () => {
-    setWelcome(!await Config.load())
+    await Config.load()
+    // Apply the persisted language now that the snapshot is loaded. Picker
+    // call sites (WelcomePage, Tab.Pengu) keep calling i18n.switchTo()
+    // directly on user change; this bootstrap covers the cold-start case
+    // where no one's clicked the language picker yet.
+    useI18n().switchTo(Config.get('app', 'language', 'en'))
     setReady(true)
     // Fire-and-forget update check on launch when the user opted in. The
     // result is held in Updater.available() and surfaced in Settings → Pengu.
@@ -25,6 +36,14 @@ function App() {
       void Updater.check().catch(() => { /* surfaced via Updater.error() */ })
     }
   })
+
+  // Final-step CTA in WelcomePage. Persists the flag *before* swapping
+  // to the main UI so a crash mid-render still leaves the tour marked
+  // done — better to skip a re-show than nag the user every launch.
+  const finishTour = () => {
+    markTourCompleted()
+    setWelcome(false)
+  }
 
   return (
     <div class="h-screen flex flex-col">
@@ -42,7 +61,7 @@ function App() {
         <Appbar isHome={!welcome()} />
         <Show
           when={!welcome()}
-          fallback={<WelcomePage onDone={() => setWelcome(false)} />}
+          fallback={<WelcomePage onDone={finishTour} />}
         >
           <MainPage />
         </Show>

@@ -2,6 +2,9 @@ import { Component } from 'solid-js'
 import { Button } from '../ui/Button'
 import { DiscordIcon, GitHubIcon, LinkIcon } from '../Icons'
 import { Shell } from '~/lib/shell'
+import { useI18n } from '~/lib/i18n'
+import { useRoot } from '~/lib/root'
+import { resetTour } from '~/lib/tour'
 
 const links = {
   home: 'https://pengu.lol',
@@ -10,6 +13,19 @@ const links = {
 }
 
 export const TabAbout: Component = () => {
+  const i18n = useI18n()
+  const { settings, setWelcome } = useRoot()
+
+  // Reset the tour completion flag and re-show the welcome flow. We
+  // close the Settings overlay first so the WelcomePage isn't rendered
+  // behind the modal. resetTour() also clears the localStorage flag so
+  // the same state holds across launches.
+  const readTos = () => {
+    resetTour()
+    settings.hide()
+    setWelcome(true)
+  }
+
   return (
     <div>
       <div class="flex flex-col space-y-4">
@@ -18,6 +34,11 @@ export const TabAbout: Component = () => {
           <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => Shell.openLink(links.home)}><LinkIcon size={16} />pengu.lol</Button>
           <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => Shell.openLink(links.discord)}><DiscordIcon size={16} /> Discord</Button>
           <Button variant="outline" size="sm" class="flex items-center gap-x-2" onClick={() => Shell.openLink(links.github)}><GitHubIcon size={16} /> GitHub</Button>
+        </div>
+        <div class="pt-2">
+          <Button variant="outline" size="sm" onClick={readTos}>
+            {i18n.t('tour_read_tos')}
+          </Button>
         </div>
       </div>
     </div>
