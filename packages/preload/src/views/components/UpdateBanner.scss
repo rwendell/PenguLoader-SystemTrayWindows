@@ -1,0 +1,84 @@
+/* UpdateBanner — fixed-bottom notification, prefixed `pengu-update-banner-`. */
+
+$bg:        #e5e7eb;
+$fg:        #111827;
+$fg-muted:  #4b5563;
+$close:     #6b7280;
+
+.pengu-update-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background-color: $bg;
+  color: $fg;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  animation: pengu-update-banner-in 0.25s ease-out;
+
+  &-text {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &-tag {
+    font-weight: 600;
+  }
+
+  &-hint {
+    color: $fg-muted;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  &-link {
+    font: inherit;
+    font-weight: 500;
+    background: none;
+    border: none;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  &-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: $close;
+    padding: 0.25rem;
+    margin: -0.25rem;
+    display: inline-flex;
+
+    &:hover {
+      color: $fg;
+    }
+  }
+}
+
+@keyframes pengu-update-banner-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}

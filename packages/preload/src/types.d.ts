@@ -70,6 +70,7 @@ declare interface Window {
   Pengu: {
     version: string
     superPotato: boolean
+    autoUpdateCheck: boolean
     plugins: string[]
     isMac: boolean
   };
@@ -85,6 +86,4 @@ declare interface Window {
   reloadClient: () => void;
   restartClient: () => void;
   getScriptPath: () => string | undefined;
-
-  __llver: string;
 }

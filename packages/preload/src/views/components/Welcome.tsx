@@ -2,53 +2,14 @@ import { Show, createSignal, onMount } from 'solid-js';
 import penguLogo from '../assets/pengu.jpg';
 import { toast } from './Toaster';
 import { _t } from '../lib/i18n';
-import { fetchUpdate } from '../lib/updater';
-import './Welcome.css';
-
-async function doCheckUpdate() {
-  const update = await fetchUpdate();
-  if (update === false) return;
-
-  toast.custom((t) => {
-    return (
-      <div class={`pengu-update-toast ${!t.visible ? 'is-hidden' : ''}`}>
-        <div class="pengu-update-toast-body">
-          <div class="pengu-update-toast-row">
-            <div class="pengu-update-toast-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                <path d="M9 12h-3.586a1 1 0 0 1 -.707 -1.707l6.586 -6.586a1 1 0 0 1 1.414 0l6.586 6.586a1 1 0 0 1 -.707 1.707h-3.586v3h-6v-3z"></path>
-                <path d="M9 21h6"></path>
-                <path d="M9 18h6"></path>
-              </svg>
-            </div>
-            <div class="pengu-update-toast-content">
-              <p class="pengu-update-toast-title">{_t('update_available')} - {update.version}</p>
-              <p class="pengu-update-toast-hint">{_t('update_hint')}</p>
-            </div>
-            <div class="pengu-update-toast-actions">
-              <button
-                class="pengu-update-toast-close"
-                onClick={() => toast.dismiss(t.id)}
-              >
-                <svg class="pengu-update-toast-close-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }, { duration: 30000, position: 'bottom-left' });
-}
+import './Welcome.scss';
 
 export function Welcome() {
 
   const welcome = window.DataStore?.get<boolean>('pengu-welcome', true) !== false;
   const [visible, show] = createSignal(welcome);
 
-  const dontShowCheck = (e) => {
+  const dontShowCheck = (e: Event & { currentTarget: HTMLInputElement }) => {
     const value = !e.currentTarget.value;
     window.DataStore?.set('pengu-welcome', value);
   };
@@ -65,8 +26,6 @@ export function Welcome() {
       });
     });
   }
-
-  onMount(doCheckUpdate);
 
   return (
     <Show when={visible()}>
