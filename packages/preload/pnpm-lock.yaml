@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       fuse.js:
-        specifier: ^7.3.0
-        version: 7.3.0
+        specifier: ^6.6.2
+        version: 6.6.2
       solid-js:
         specifier: ^1.9.12
         version: 1.9.12
@@ -611,8 +611,8 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
-  fuse.js@7.3.0:
-    resolution: {integrity: sha512-plz8RVjfcDedTGfVngWH1jmJvBvAwi1v2jecfDerbEnMcmOYUEEwKFTHbNoCiYyzaK2Ws8lABkTCcRSqCY1q4w==}
+  fuse.js@6.6.2:
+    resolution: {integrity: sha512-cJaJkxCCxC8qIIcPBF9yGxY0W/tVZS3uEISDxhYIdtk8OL93pe+6Zj7LjCqVV4dzbqcriOZ+kQ/NE4RXZHsIGA==}
     engines: {node: '>=10'}
 
   gensync@1.0.0-beta.2:
@@ -1429,7 +1429,7 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  fuse.js@7.3.0: {}
+  fuse.js@6.6.2: {}
 
   gensync@1.0.0-beta.2: {}
 
