@@ -205,6 +205,24 @@ public sealed class BorderlessWindow : Win32Window
                 _browser?.Focus();
                 break;
 
+            case WindowMessage.WM_GETMINMAXINFO:
+                // Enforce the 800×450 logical-pixel floor on user-driven
+                // resizes (drag-edge, Aero Snap quarter-tiles). Scaled to
+                // physical pixels by the current monitor DPI so the floor
+                // stays visually consistent across mixed-DPI multi-mon
+                // setups. Per-Monitor V2 awareness means GetDpiForWindow
+                // reports the *current* monitor's effective DPI even
+                // after a drag across monitors.
+                unsafe
+                {
+                    uint dpi = GetDpiForWindow(Handle);
+                    if (dpi == 0) dpi = 96;
+                    var mmi = (MINMAXINFO*)lParam;
+                    mmi->minTrackSize.cx = (int)(MinLogicalW * dpi / 96);
+                    mmi->minTrackSize.cy = (int)(MinLogicalH * dpi / 96);
+                }
+                return IntPtr.Zero;
+
             case WindowMessage.WM_SIZE:
                 _browser?.ResizeToFill();
                 _resizeFrame?.OnParentResized();
@@ -251,26 +269,82 @@ public sealed class BorderlessWindow : Win32Window
         _restoreHeight = Math.Max(1, r.bottom - r.top);
     }
 
+    /// <summary>Min track size (logical pixels). Scaled to physical pixels
+    /// by current monitor DPI in the WM_GETMINMAXINFO handler. The hub's
+    /// layout breaks below this, so it doubles as the smallest size tier
+    /// for first-launch placement.</summary>
+    private const int MinLogicalW = 800;
+    private const int MinLogicalH = 450;
+
     private static (int x, int y, int w, int h) ResolveInitialPlacement(WindowState? state)
     {
-        const int defaultW = 940;
-        const int defaultH = 560;
-
         if (state is null || state.Width <= 0 || state.Height <= 0)
         {
-            var (cx, cy) = CenterOnPrimary(defaultW, defaultH);
-            return (cx, cy, defaultW, defaultH);
+            var (w, h) = SelectInitialSize();
+            var (cx, cy) = CenterOnPrimary(w, h);
+            return (cx, cy, w, h);
         }
+
+        // Clamp the saved size up to the min so a stored sub-minimum
+        // (from a previous bad save or a future schema change) doesn't
+        // restore into a tiny window.
+        var sw = Math.Max(state.Width, MinLogicalW);
+        var sh = Math.Max(state.Height, MinLogicalH);
 
         // Clamp to a sensible visible region. If the saved coords are off
         // every monitor (user disconnected the display they were on), recenter.
-        if (!IsRectMostlyVisible(state.X, state.Y, state.Width, state.Height))
+        if (!IsRectMostlyVisible(state.X, state.Y, sw, sh))
         {
-            var (cx, cy) = CenterOnPrimary(state.Width, state.Height);
-            return (cx, cy, state.Width, state.Height);
+            var (cx, cy) = CenterOnPrimary(sw, sh);
+            return (cx, cy, sw, sh);
         }
 
-        return (state.X, state.Y, state.Width, state.Height);
+        return (state.X, state.Y, sw, sh);
+    }
+
+    /// <summary>
+    /// Pick the largest 16:9 tier that fits in the primary monitor's work
+    /// area at the current system DPI. Order: 1280×720 → 940×560 → 800×450.
+    /// All tiers are expressed in logical (96-DPI) pixels and scaled up
+    /// before comparison, so a high-DPI monitor with 200 % scaling sees
+    /// "1280×720" as ~2560×1440 physical pixels — same visual footprint
+    /// regardless of scale factor.
+    /// </summary>
+    private static (int w, int h) SelectInitialSize()
+    {
+        // Logical-pixel tiers, large → small.
+        var tiers = new (int W, int H)[]
+        {
+            (1280, 720),
+            (940,  560),
+            (MinLogicalW, MinLogicalH),
+        };
+
+        unsafe
+        {
+            RECT work;
+            if (!SystemParametersInfo(SPI.SPI_GETWORKAREA, 0, (IntPtr)(&work), 0))
+                return (940, 560); // metrics unavailable; preserve the prior default
+
+            uint dpi = GetDpiForSystem();
+            if (dpi == 0) dpi = 96;
+
+            int areaW = work.right - work.left;
+            int areaH = work.bottom - work.top;
+
+            foreach (var (lw, lh) in tiers)
+            {
+                int pw = (int)(lw * dpi / 96);
+                int ph = (int)(lh * dpi / 96);
+                if (pw <= areaW && ph <= areaH) return (pw, ph);
+            }
+
+            // Even the floor doesn't fit — clamp to the work area so the
+            // window is still visible end-to-end. Aspect ratio's lost
+            // here, but so is the screen.
+            return (Math.Min((int)(MinLogicalW * dpi / 96), areaW),
+                    Math.Min((int)(MinLogicalH * dpi / 96), areaH));
+        }
     }
 
     private static bool IsRectMostlyVisible(int x, int y, int w, int h)
