@@ -58,16 +58,16 @@ export const Appbar: Component<{
           <Activator />
           <Show when={!isStore()}>
             <Command onClick={() => setStore(true)} ref={useTippy('Plugin Store')}>
-              <StoreIcon size={16} />
+              <StoreIcon size={20} thickness={1.5} />
             </Command>
           </Show>
           <Show when={isStore()}>
             <Command onClick={() => setStore(false)} ref={useTippy('Back to Gallery')}>
-              <ArrowBackUpIcon size={16} />
+              <ArrowBackUpIcon size={20} thickness={1.5} />
             </Command>
           </Show>
           <Command onClick={settings.show} ref={useTippy('Settings')}>
-            <SettingsIcon size={16} />
+            <SettingsIcon size={20} thickness={1.5} />
           </Command>
         </Show>
         <Command onClick={minimize}>

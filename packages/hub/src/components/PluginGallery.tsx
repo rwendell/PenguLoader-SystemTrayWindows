@@ -1,6 +1,6 @@
 import { Component, For, createSignal, onMount, Switch, Match, Show, createEffect } from 'solid-js'
 import { type PluginInfo, PluginManager } from '../lib/plugins'
-import { LinkIcon, LoaderIcon, ReloadIcon, StoreIcon } from './Icons'
+import { FolderOpenIcon, LinkIcon, LoaderIcon, ReloadIcon, StoreIcon } from './Icons'
 import { Checkbox } from './ui'
 import { useConfig } from '~/lib/config'
 import { useRoot } from '~/lib/root'
@@ -144,14 +144,14 @@ export const PluginGallery: Component = () => {
                     tabIndex={-1}
                     onClick={reload}
                   >
-                    <ReloadIcon size={14} /> Reload
+                    <ReloadIcon size={16} thickness={1.5} /> Reload
                   </button>
                   <button
                     class="inline-flex gap-1 items-center text-sm border border-foreground/10 rounded-sm px-3 py-1 hover:bg-foreground hover:text-background"
                     tabIndex={-1}
                     onClick={revealPlugins}
                   >
-                    Open folder
+                    <FolderOpenIcon size={16} thickness={1.5} /> Open folder
                   </button>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export const PluginGallery: Component = () => {
                   tabIndex={-1}
                   onClick={() => setStore(true)}
                 >
-                  <StoreIcon size={14} /> Get in Store
+                  <StoreIcon size={16} thickness={1.5} /> Get in Store
                 </button>
               </div>
             </div>

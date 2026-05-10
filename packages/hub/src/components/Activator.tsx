@@ -152,7 +152,7 @@ export const Activator: Component = () => {
             the icon itself rather than the surrounding pill chrome. Keeps the
             inactive expanded pill readable as gray without dulling the icon. */}
         <span class="text-primary">
-          <Dynamic component={active() ? BoltIcon : PowerIcon} size={16} thickness={2.5} />
+          <Dynamic component={active() ? BoltIcon : PowerIcon} size={20} thickness={1.5} />
         </span>
         <span class="
           overflow-hidden whitespace-nowrap text-sm font-semibold
