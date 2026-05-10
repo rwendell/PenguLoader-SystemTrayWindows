@@ -369,6 +369,7 @@ namespace config
         bool use_devtools();
         bool use_riotclient();
         bool use_proxy();
+        bool auto_update_check();
 
         // undocumented
         int debug_port();

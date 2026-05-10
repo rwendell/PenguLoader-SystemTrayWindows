@@ -163,6 +163,10 @@ static void LoadPlugins(V8Object *window)
     auto superPotato = V8Value::boolean(config::options::super_potato());
     pengu->set(&u"superPotato"_s, superPotato, V8_PROPERTY_ATTRIBUTE_READONLY);
 
+    // Pengu.autoUpdateCheck
+    auto autoUpdateCheck = V8Value::boolean(config::options::auto_update_check());
+    pengu->set(&u"autoUpdateCheck"_s, autoUpdateCheck, V8_PROPERTY_ATTRIBUTE_READONLY);
+
     pengu->set(&u"isMac"_s,
 #ifdef OS_MAC
         V8Value::boolean(true),
@@ -213,7 +217,7 @@ static void ExecutePreloadScript(cef_v8context_t *context)
 
 #ifdef _DEBUG
     void *buffer; size_t length;
-    path preload_path = config::loader_dir() / "../packages/preload/dist/preload.js";
+    path preload_path = config::module_dir() / "../packages/preload/dist/preload.js";
 
     if (file::read_file(preload_path, &buffer, &length))
     {
