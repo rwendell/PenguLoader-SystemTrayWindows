@@ -1,5 +1,4 @@
-#ifndef _HOOK_H_
-#define _HOOK_H_
+#pragma once
 
 #include "platform.h"
 #include <stdint.h>
@@ -162,5 +161,3 @@ namespace hook
         std::mutex mutex_;
     };
 }
-
-#endif
