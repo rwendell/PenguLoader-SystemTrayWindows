@@ -2,7 +2,7 @@ import './api';
 import './super-potato';
 import './load-hooks';
 import './loader';
-import { version } from '../../package.json'
 
-window.Pengu.version = version
+// @ts-ignore
+window.Pengu.version = __VERSION__;
 Object.freeze(window.Pengu);

@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { defineConfig } from 'vite';
 import { build } from 'esbuild';
+import rootPkg from '../../package.json' with { type: 'json' }
 
 // Vite plugins
 import solidPlugin from 'vite-plugin-solid';
@@ -40,6 +41,10 @@ export default defineConfig(({ command, mode }) => {
           entryFileNames: 'preload.js'
         }
       }
+    },
+    define: {
+      '__VERSION__': JSON.stringify(rootPkg.version),
+      '__PLATFORM__': JSON.stringify(process.platform),
     },
     plugins: [
       solidPlugin(),

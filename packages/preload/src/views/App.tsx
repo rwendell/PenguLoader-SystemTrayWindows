@@ -6,7 +6,7 @@ import { SettingsDrawer } from './components/Settings';
 
 export default function App() {
   return (
-    <div>
+    <>
       <Welcome />
       <CommandBar />
       <SettingsDrawer />
@@ -15,6 +15,6 @@ export default function App() {
         gutter={8}
         position="bottom-right"
       />
-    </div>
+    </>
   )
 }
