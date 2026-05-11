@@ -4,7 +4,7 @@ VERSION := $(shell node -p "require('$(MAKEFILE_DIR)../package.json').version" 2
 
 # Directories
 SRC_DIR := ./src
-BIN_DIR := ../bin
+BIN_DIR := ./bin
 OBJ_DIR := $(BIN_DIR)/obj
 PLUGINS_DIR := $(BIN_DIR)/plugins
 

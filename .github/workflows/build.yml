@@ -119,7 +119,7 @@ jobs:
       # C++ core -> core/bin/core.dylib (the makefile's LIB_OUT_PATH).
       - name: Build core (macos)
         if: runner.os == 'macOS'
-        run: make -C core release
+        run: make -C core -j release
 
       # Publish the .NET 10 macOS host as AOT + universal (arm64 + x86_64).
       # The csproj's <RuntimeIdentifiers> drives multi-arch — no -r flag.
@@ -139,18 +139,25 @@ jobs:
       #  - arm64/Pengu.app      — Apple Silicon-only AOT build (~14 MB)
       #  - x86_64/Pengu.app     — Intel-only AOT build (~14 MB)
       #
-      # Per-arch .apps are produced as side-effects of the multi-RID publish
-      # at bin/Release/net10.0-macos/{osx-arm64,osx-x64}/Pengu.app — no extra
-      # publish runs needed. core.dylib is bundled into each .app at build
-      # time via <BundleResource> in the csproj, and app.dat is embedded
-      # in the Pengu binary; nothing extra to stage.
+      # Per-arch .apps come from the multi-RID publish at
+      # bin/Release/net10.0-macos/{osx-arm64,osx-x64}/Pengu.app — these are
+      # intermediate skeletons that DON'T get <BundleResource> staging
+      # (the workload only fully assembles the lipo'd universal in
+      # --output). So core.dylib and app-icon.icns get cp'd in here.
+      # app.dat is embedded in the Pengu binary so each build already has it.
       - name: Stage macOS deliverables
         if: runner.os == 'macOS'
         run: |
-          mkdir -p out/arm64/ out/x86_64/
-          cp app-publish/*.pkg                                                     out/
-          cp -R app/Pengu.MacOS/bin/Release/net10.0-macos/osx-arm64/Pengu.app       out/arm64/Pengu.app
-          cp -R app/Pengu.MacOS/bin/Release/net10.0-macos/osx-x64/Pengu.app         out/x86_64/Pengu.app
+          mkdir -p out/
+          cp app-publish/*.pkg out/
+          for pair in "osx-arm64:arm64" "osx-x64:x86_64"; do
+            rid="${pair%%:*}"
+            arch="${pair##*:}"
+            mkdir -p "out/$arch/"
+            cp -R "app/Pengu.MacOS/bin/Release/net10.0-macos/$rid/Pengu.app" "out/$arch/Pengu.app"
+            cp core/bin/core.dylib            "out/$arch/Pengu.app/Contents/Resources/"
+            cp app/Pengu.MacOS/app-icon.icns  "out/$arch/Pengu.app/Contents/Resources/"
+          done
 
       # ─── Artifact upload (shared) ───────────────────────────────────────
       - name: Upload portable artifact
