@@ -13,6 +13,9 @@
     /* Bundler mode */
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "paths": {
+      "@pengujs/types": ["../types/index.d.ts"]
+    },
     "noEmit": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",

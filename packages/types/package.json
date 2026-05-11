@@ -1,0 +1,25 @@
+{
+  "name": "@pengujs/types",
+  "version": "0.1.0",
+  "description": "Public TypeScript types for Pengu Loader plugin authors.",
+  "license": "MIT",
+  "types": "index.d.ts",
+  "files": [
+    "index.d.ts",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PenguLoader/PenguLoader.git",
+    "directory": "packages/types"
+  },
+  "keywords": [
+    "pengu-loader",
+    "league-of-legends",
+    "plugin-types"
+  ],
+  "homepage": "https://github.com/PenguLoader/PenguLoader#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

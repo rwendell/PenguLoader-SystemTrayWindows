@@ -44,7 +44,7 @@ export async function fetchUpdate(): Promise<UpdateInfo | null> {
     const tag: string = release?.tag_name ?? '';
     const url: string = release?.html_url ?? `https://github.com/${GITHUB_REPO}/releases/latest`;
 
-    if (true || parseVersion(tag) > parseVersion(current)) {
+    if (parseVersion(tag) > parseVersion(current)) {
       return { tag, url };
     }
   } catch (err) {
