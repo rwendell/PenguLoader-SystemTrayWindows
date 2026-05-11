@@ -17,4 +17,8 @@ interface Native {
   LoadDataStore:  () => Promise<string>;
   SaveDataStore:  (data: string) => void;          // fire-and-forget
   FlushDataStore: () => Promise<void>;
+
+  // Writable-JSON $write back-end. Captured + rebound as `window.__pwj` by
+  // api/json.ts so the SCRIPT_IMPORT_JSON shim can call into it.
+  WriteJson: (url: string, content: string) => Promise<void>;
 }

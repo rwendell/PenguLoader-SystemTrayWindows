@@ -158,6 +158,27 @@ export type Field =
 /** Schema is a record of field id → Field. Insertion order is preserved in the rendered form. */
 export type Schema = Record<string, Field>;
 
+// =============================================================================
+// Writable JSON modules
+// =============================================================================
+
+/**
+ * Helper type for the `import config from './config.json'` + `await config.$write()`
+ * flow. Apply at the import site to surface `$write` on the inferred type:
+ *
+ * ```ts
+ * import _config from './config.json';
+ * const config = _config as WritableJson<typeof _config>;
+ * config.foo = 123;
+ * await config.$write();
+ * ```
+ *
+ * `$write` only exists on JSON modules whose root is an object or array
+ * (primitives can't carry properties). Calling `$write` on a non-writable
+ * root throws at runtime; the type does not enforce that distinction.
+ */
+export type WritableJson<T> = T & { readonly $write: () => Promise<void> };
+
 /** Maps a Field to its persisted value type. `action` and `note` have no value. */
 export type FieldValue<F> =
     F extends { type: 'boolean'; default: infer D } ? D

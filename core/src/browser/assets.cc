@@ -73,9 +73,8 @@ private:
             fs_path = fs_path.substr(0, pos);
         }
 
-        // Decode URI. Path separators stay escaped per the UU rule so a
-        // %2F in a filename can't fake a directory split.
-        decode_uri(fs_path);
+        // Decode URI (path separators stay escaped — see assets_path.h).
+        assets::decode_uri(fs_path);
 
         // Join with the plugins directory.
         fs_path = config::plugins_dir().u16string().append(fs_path);
@@ -212,7 +211,10 @@ private:
             if (!mime_.empty())
                 response->set_mime_type(response, &CefStr::wrap(mime_));
 
-            if (no_cache_ || mime_ == u"text/javascript")
+            // application/json gets no-store too — the writable-JSON `$write`
+            // path mutates files behind the cache, and a stale cached response
+            // would surface old content on the next plain fetch.
+            if (no_cache_ || mime_ == u"text/javascript" || mime_ == u"application/json")
                 response->set_header_by_name(response, &u"Cache-Control"_s, &u"no-store"_s, 1);
             else
             {
@@ -349,16 +351,6 @@ private:
         response->set_header_by_name(response, &name, &value, 1);
     }
 
-    static void decode_uri(std::u16string &uri)
-    {
-        auto rule = cef_uri_unescape_rule_t(UU_SPACES
-            | UU_URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS);
-
-        cef_string_t input{ (char16 *)uri.data(), uri.length(), nullptr };
-        CefScopedStr output{ cef_uridecode(&input, true, rule) };
-
-        uri.assign((char16_t *)output.str, output.length);
-    }
 };
 
 struct AssetsSchemeHandlerFactory : CefRefCount<cef_scheme_handler_factory_t>

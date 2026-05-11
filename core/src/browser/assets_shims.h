@@ -78,10 +78,33 @@ namespace assets
 })();
 )";
 
+    // Parsed JSON object/array gets a non-enumerable `$write` bound to the
+    // module's own URL. Calling `data.$write()` returns a Promise that
+    // resolves when an atomic temp+rename write is durable on disk.
+    //
+    // `window.__pwj` is captured from `window.__native.WriteJson` by the
+    // preload (api/json.ts) before any plugin imports JSON — see the same
+    // late-listener tradeoff documented for SCRIPT_IMPORT_CSS.
+    //
+    // Primitives (e.g. JSON `true`, `42`, `"hi"`) can't have properties, so
+    // `$write` is only attached to object/array roots. Plugin authors who
+    // want $write should ship `{...}` or `[...]` JSON, which is overwhelmingly
+    // the common case for config files.
     inline constexpr const char *SCRIPT_IMPORT_JSON = R"(
 const url = import.meta.url.replace(/\?.*$/, '');
 const content = await fetch(url).then(r => r.text());
-export default JSON.parse(content);
+const data = JSON.parse(content);
+
+if (data !== null && typeof data === 'object') {
+    Object.defineProperty(data, '$write', {
+        value: () => window.__pwj(url, JSON.stringify(data)),
+        writable: false,
+        configurable: false,
+        enumerable: false,
+    });
+}
+
+export default data;
 )";
 
     inline constexpr const char *SCRIPT_IMPORT_RAW = R"(
