@@ -35,6 +35,8 @@
     <None Include="src\utils\cocoa.mm" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\browser\assets_path.h" />
+    <ClInclude Include="src\browser\assets_shims.h" />
     <ClInclude Include="src\browser\browser.h" />
     <ClInclude Include="src\pengu.h" />
     <ClInclude Include="src\hook.h" />

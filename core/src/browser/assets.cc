@@ -1,5 +1,7 @@
 #include "browser.h"
-#include <unordered_set>
+#include "assets_shims.h"
+#include "assets_path.h"
+
 #include "include/capi/cef_parser_capi.h"
 #include "include/capi/cef_scheme_capi.h"
 #include "include/capi/cef_stream_capi.h"
@@ -7,71 +9,10 @@
 
 // BROWSER PROCESS ONLY.
 
-template <typename T>
-static constexpr uint32_t fnv32_1a(const T *in, size_t len)
-{
-    uint32_t hash = 2166136261u;
-    for (size_t i = 0; i < len; ++i) {
-        hash ^= in[i];
-        hash *= 16777619u;
-    }
-    return hash;
-}
-
-static constexpr uint32_t operator""_hash(const char *in, size_t len)
-{
-    return fnv32_1a(in, len);
-}
-
-static const std::unordered_set<uint32> KNOWN_ASSETS_SET
-{
-    // images
-    "bmp"_hash, "png"_hash,
-    "jpg"_hash, "jpeg"_hash, "jfif"_hash,
-    "pjpeg"_hash, "pjp"_hash, "gif"_hash,
-    "svg"_hash, "ico"_hash, "webp"_hash,
-    "avif"_hash,
-
-    // media
-    "mp4"_hash, "webm"_hash,
-    "ogg"_hash, "mp3"_hash, "wav"_hash,
-    "flac"_hash, "aac"_hash,
-
-    // fonts
-    "woff"_hash, "woff2"_hash,
-    "eot"_hash, "ttf"_hash, "otf"_hash,
-};
-
-static const auto SCRIPT_IMPORT_CSS = R"(
-(async function () {
-    if (document.readyState !== 'complete')
-        await new Promise(res => document.addEventListener('DOMContentLoaded', res));
-
-    const url = import.meta.url.replace(/\?.*$/, '');
-    const link = document.createElement('link');
-    link.setAttribute('rel', 'stylesheet');
-    link.setAttribute('href', url);
-
-    document.body.appendChild(link);
-})();
-)";
-
-static const auto SCRIPT_IMPORT_JSON = R"(
-const url = import.meta.url.replace(/\?.*$/, '');
-const content = await fetch(url).then(r => r.text());
-export default JSON.parse(content);
-)";
-
-static const auto SCRIPT_IMPORT_RAW = R"(
-const url = import.meta.url.replace(/\?.*$/, '');
-const content = await fetch(url).then(r => r.text());
-export default content;
-)";
-
-static const auto SCRIPT_IMPORT_URL = R"(
-const url = import.meta.url.replace(/\?.*$/, '');
-export default url;
-)";
+// Length of the leading "https://plugins" prefix in every incoming URL.
+// register_plugins_domain pins both the scheme and the synthetic host, so
+// every request the handler sees begins with exactly these 15 characters.
+static constexpr size_t URL_PREFIX_LEN = 15;
 
 // Custom resource handler for local assets.
 class AssetsResourceHandler : public CefRefCount<cef_resource_handler_t>
@@ -110,76 +51,111 @@ private:
         bool js_mime = false;
 
         CefScopedStr url = request->get_url(request);
-        std::u16string path, query_part;
-        path.assign((char16_t *)url.str + 15, url.length - 15); // skip 'https://plugins'
 
-        // Check query part.
-        if ((pos = path.rfind('?')) != std::u16string::npos)
+        // Defensive: a malformed URL shorter than the scheme+host prefix means
+        // something violated the contract our scheme registration set up.
+        // Treat as 404 rather than reading garbage past the end of the buffer.
+        if (url.length < URL_PREFIX_LEN)
         {
-            // Extract it.
-            query_part = path.substr(pos + 1);
-            // Remove it from path.
-            path = path.substr(0, pos);
+            *handle_request = 1;
+            return 1;
         }
 
-        // Decode URI.
-        decode_uri(path);
+        std::u16string fs_path, query_part;
+        fs_path.assign((char16_t *)url.str + URL_PREFIX_LEN,
+                       url.length - URL_PREFIX_LEN);
 
-        // Get final path.
-        path = config::plugins_dir().u16string().append(path);
+        // Query strings start at the FIRST `?` per RFC 3986. rfind would
+        // grab the last one if a filename ever contained an escaped `?`.
+        if ((pos = fs_path.find('?')) != std::u16string::npos)
+        {
+            query_part = fs_path.substr(pos + 1);
+            fs_path = fs_path.substr(0, pos);
+        }
 
-        // Trailing slash.
-        if (path[path.length() - 1] == '/' || path[path.length() - 1] == '\\')
+        // Decode URI. Path separators stay escaped per the UU rule so a
+        // %2F in a filename can't fake a directory split.
+        decode_uri(fs_path);
+
+        // Join with the plugins directory.
+        fs_path = config::plugins_dir().u16string().append(fs_path);
+
+        // Trailing slash → serve <dir>/index.js.
+        if (fs_path[fs_path.length() - 1] == '/' || fs_path[fs_path.length() - 1] == '\\')
         {
             js_mime = true;
-            path.append(u"index.js");
+            fs_path.append(u"index.js");
         }
         else
         {
-            size_t pos = path.find_last_of(u"//\\");
-            std::u16string sub = path.substr(pos + 1);
+            size_t sep = fs_path.find_last_of(u"/\\");
+            std::u16string leaf = fs_path.substr(sep + 1);
 
-            // No extension.
-            if (sub.rfind('.') == std::u16string::npos)
+            // No extension on the leaf — peek .js then folder/index.js.
+            if (leaf.rfind('.') == std::u16string::npos)
             {
-                // peek .js
-                if ((js_mime = file::is_file(path + u".js")))
-                    path.append(u".js");
-                // peek folder
-                else if ((js_mime = file::is_dir(path)))
-                    path.append(u"/index.js");
+                if ((js_mime = file::is_file(fs_path + u".js")))
+                    fs_path.append(u".js");
+                else if ((js_mime = file::is_dir(fs_path)))
+                    fs_path.append(u"/index.js");
             }
         }
 
-        if (file::is_file(path))
+        // Path-traversal defense. After all the .js / index.js appending the
+        // resolved path must still sit inside plugins_dir — `..` segments are
+        // collapsed by `lexically_normal` before the prefix check. CEF/Chromium
+        // usually normalizes `..` in URLs before we see them, but this is the
+        // explicit guarantee.
+        if (!assets::is_inside(config::plugins_dir(), path{ fs_path }))
+        {
+            *handle_request = 1;
+            return 1;
+        }
+
+        if (file::is_file(fs_path))
         {
             const char *module_code = nullptr;
             if (request->get_resource_type(request) == RT_SCRIPT)
             {
                 if (query_part == u"url")
-                    module_code = SCRIPT_IMPORT_URL;
+                    module_code = assets::SCRIPT_IMPORT_URL;
                 else if (query_part == u"raw")
-                    module_code = SCRIPT_IMPORT_RAW;
-                else if ((pos = path.rfind('.')) != std::u16string::npos)
+                    module_code = assets::SCRIPT_IMPORT_RAW;
+                else if ((pos = fs_path.rfind('.')) != std::u16string::npos)
                 {
-                    auto ext = path.substr(pos + 1);
+                    // Lowercase the extension for matching — `.JSON` should
+                    // produce the same shim as `.json`.
+                    auto ext = fs_path.substr(pos + 1);
+                    for (auto &ch : ext)
+                        if (ch >= u'A' && ch <= u'Z') ch = ch - u'A' + u'a';
+
                     if (ext == u"css")
-                        module_code = SCRIPT_IMPORT_CSS;
+                        module_code = assets::SCRIPT_IMPORT_CSS;
                     else if (ext == u"json")
-                        module_code = SCRIPT_IMPORT_JSON;
-                    else if (KNOWN_ASSETS_SET.find(fnv32_1a(ext.c_str(), ext.length())) != KNOWN_ASSETS_SET.end())
-                        module_code = SCRIPT_IMPORT_URL;
+                        module_code = assets::SCRIPT_IMPORT_JSON;
+                    else if (assets::KNOWN_ASSETS_SET.find(
+                                 assets::fnv32_1a(ext.c_str(), ext.length()))
+                             != assets::KNOWN_ASSETS_SET.end())
+                        module_code = assets::SCRIPT_IMPORT_URL;
                 }
             }
 
             if (module_code != nullptr)
             {
                 js_mime = true;
-                stream_ = cef_stream_reader_create_for_data((void *)module_code, strlen(module_code));
+                stream_ = cef_stream_reader_create_for_data(
+                    (void *)module_code, strlen(module_code));
             }
             else
             {
-                stream_ = cef_stream_reader_create_for_file(&CefStr::wrap(path));
+                // Stash CefStr::wrap in a named local so the cef_string_t
+                // backing the call is unambiguously alive for the full
+                // duration of cef_stream_reader_create_for_file. Passing
+                // `&CefStr::wrap(path)` worked in practice (CEF reads it
+                // synchronously) but the lifetime was relying on
+                // implementation behavior.
+                auto path_str = CefStr::wrap(fs_path);
+                stream_ = cef_stream_reader_create_for_file(&path_str);
             }
         }
 
@@ -195,25 +171,23 @@ private:
                 mime_.assign(u"text/javascript");
                 no_cache_ = true;
             }
-            else if ((pos = path.rfind(u'.')) != std::u16string::npos)
+            else if ((pos = fs_path.rfind(u'.')) != std::u16string::npos)
             {
                 // Get MIME type from file extension.
-                auto ext = path.substr(pos + 1);
+                auto ext = fs_path.substr(pos + 1);
                 CefScopedStr type{ cef_get_mime_type(&CefStr::wrap(ext)) };
                 type.copy(mime_);
             }
         }
 
-        // get range header
+        // Save range header for later.
         CefScopedStr range{ request->get_header_by_name(request, &u"Range"_s) };
         if (!range.empty())
         {
-            // save it
             range_header_.assign(range.to_utf8());
         }
 
         *handle_request = 1;
-        //callback->cont(callback);
         return 1;
     }
 
@@ -292,12 +266,13 @@ private:
         else
         {
             int oldPosition = static_cast<int>(stream_->tell(stream_));
-            int result = stream_->seek(stream_, bytes_to_skip, SEEK_CUR);
+            stream_->seek(stream_, bytes_to_skip, SEEK_CUR);
             int position = static_cast<int>(stream_->tell(stream_));
-            *bytes_skipped = position - oldPosition;
-            *bytes_skipped = bytes_to_skip;
 
-            // skip
+            // Report the *actual* delta — clamped at EOF if the seek didn't
+            // reach the requested target. Previously we overwrote this with
+            // `bytes_to_skip`, which lied to the caller in the clamped case.
+            *bytes_skipped = position - oldPosition;
             offset_ = position;
         }
 
@@ -322,7 +297,7 @@ private:
     {
         contentRange.clear();
         contentLength = 0;
-        
+
         // skip 'bytes='
         auto range = range_header_.substr(6);
 
@@ -364,7 +339,7 @@ private:
     static void set_etag(cef_response_t *response)
     {
         CefScopedStr url = response->get_url(response);
-        uint32_t hash = fnv32_1a(url.str, url.length);
+        uint32_t hash = assets::fnv32_1a(url.str, url.length);
 
         char etag[64];
         size_t etag_length = snprintf(etag, sizeof(etag) - 1, "\"%08x\"", hash);
