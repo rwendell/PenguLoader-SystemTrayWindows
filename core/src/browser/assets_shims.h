@@ -90,6 +90,10 @@ namespace assets
     // `$write` is only attached to object/array roots. Plugin authors who
     // want $write should ship `{...}` or `[...]` JSON, which is overwhelmingly
     // the common case for config files.
+    // `$write(space?)` mirrors JSON.stringify's third argument:
+    //   `$write()`     → compact JSON
+    //   `$write(2)`    → 2-space indent
+    //   `$write('\t')` → tab indent
     inline constexpr const char *SCRIPT_IMPORT_JSON = R"(
 const url = import.meta.url.replace(/\?.*$/, '');
 const content = await fetch(url).then(r => r.text());
@@ -97,7 +101,7 @@ const data = JSON.parse(content);
 
 if (data !== null && typeof data === 'object') {
     Object.defineProperty(data, '$write', {
-        value: () => window.__pwj(url, JSON.stringify(data)),
+        value: (space) => window.__pwj(url, JSON.stringify(data, null, space)),
         writable: false,
         configurable: false,
         enumerable: false,
