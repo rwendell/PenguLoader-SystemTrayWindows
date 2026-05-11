@@ -21,11 +21,8 @@ declare global {
     errorHandler: () => any
     registrationHandler: (registrar: (e: any) => Promise<any>) => Promise<any> | void
   }
-
-  // Mirrors `PluginModule` in `@pengujs/types`. Inlined for loader.ts.
-  interface Plugin {
-    init?: (context: any) => any
-    load?: () => any
-    default?: Function | any
-  }
 }
+
+// `PluginModule` (the loader's import type) lives in `@pengujs/types` —
+// import it explicitly where needed instead of polluting the global namespace
+// next to the deprecated DOM `Plugin` interface.

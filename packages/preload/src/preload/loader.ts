@@ -1,4 +1,6 @@
 import { rcp, socket } from './rcp';
+import { initDataStore } from './api/DataStore';
+import type { PluginModule } from '@pengujs/types';
 
 const plugins = window.Pengu.plugins
 
@@ -42,7 +44,7 @@ async function loadPlugin(entry: string) {
   try {
     // Acquire plugin
     const url = `https://plugins/${entry}`;
-    const plugin: Plugin = await import(url);
+    const plugin: PluginModule = await import(url);
 
     // Init immediately
     if (typeof plugin.init === 'function') {
@@ -85,7 +87,14 @@ async function loadPlugin(entry: string) {
 // subscribe-after-announce.
 const PLUGIN_LOAD_TIMEOUT_MS = 15_000;
 
-const allLoaded = Promise.all(plugins.map(loadPlugin));
+// Load DataStore from disk before any plugin's `init` — plugin code can then
+// rely on sync `DataStore.get` / `has` returning persisted values. Adds a
+// one-shot file-read latency (~ms) to the load chain; acceptable trade-off
+// for a clean sync API.
+const allLoaded = (async () => {
+  await initDataStore();
+  await Promise.all(plugins.map(loadPlugin));
+})();
 
 // Cancel the timer once plugins finish so the warning only fires on a real
 // timeout. (Promise.race resolves on the winner but doesn't cancel the loser

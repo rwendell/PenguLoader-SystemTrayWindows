@@ -12,6 +12,9 @@ interface Native {
   SetWindowTheme: (dark: boolean) => void;
   SetWindowVibrancy: (kind: number | null, state?: number) => void;
 
-  LoadDataStore: () => string;
-  SaveDataStore: (data: string) => void;
+  // Async DataStore — see core/src/renderer/v8_datastore.cc and
+  // packages/preload/src/preload/api/DataStore.ts.
+  LoadDataStore:  () => Promise<string>;
+  SaveDataStore:  (data: string) => void;          // fire-and-forget
+  FlushDataStore: () => Promise<void>;
 }

@@ -33,8 +33,8 @@ export interface PluginModule {
   init?: (context: PluginInitContext) => void | Promise<void>;
   /** Registered as a `window` `'load'` listener. Runs after LCUX's HTML is parsed. */
   load?: () => void;
-  /** Same as `load` if exported as default. */
-  default?: (() => void) | unknown;
+  /** Same as `load` if exported as default. Non-function defaults are ignored at runtime. */
+  default?: () => void;
 }
 
 // =============================================================================
@@ -106,9 +106,21 @@ export interface Toast {
 
 export interface DataStore {
   has: (key: string) => boolean;
+  /** Sync read against the in-memory mirror; safe to call from plugin `init`. */
   get: <T = unknown>(key: string, fallback?: T) => T | undefined;
+  /**
+   * Mutates the in-memory mirror immediately and schedules a debounced async
+   * commit (latest-wins coalescing on the native side). Returns `false` only
+   * on invalid args; `true` means "accepted and will persist soon."
+   */
   set: (key: string, value: unknown) => boolean;
+  /** Same async-commit semantics as `set`. Returns `true` if the key existed. */
   remove: (key: string) => boolean;
+  /**
+   * Force the pending debounced write immediately and resolve once it is
+   * durable on disk. Power-user method — the common path doesn't need it.
+   */
+  flush: () => Promise<void>;
 }
 
 // =============================================================================
