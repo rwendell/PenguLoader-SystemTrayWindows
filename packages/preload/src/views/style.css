@@ -1,13 +1,9 @@
-body {
-  position: relative;
-}
-
 #pengu-root {
   font-size: .875rem;
   font-family: var(--font-body);
 }
 
-div[id^=index_loading_div] {
+/* div[id^=index_loading_div] {
   background-color: #010a13;
 }
 
@@ -32,4 +28,28 @@ div[id^=index_loading_div]:after {
   font-family: var(--font-body);
   font-size: 1rem;
   text-transform: uppercase;
+} */
+
+.lol-settings-footer::before {
+  content: "";
+  background-image: url(/lol-game-data/assets/v1/profile-icons/4216.jpg);
+  background-repeat: no-repeat;
+  background-size: cover;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  bottom: 6px;
+  right: 128px;
+}
+
+.lol-settings-footer::after {
+  content: "Pengu-Powered";
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: #cdbe91;
+  text-transform: uppercase;
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
 }

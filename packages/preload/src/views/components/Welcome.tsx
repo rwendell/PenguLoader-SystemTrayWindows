@@ -1,6 +1,5 @@
-import { Show, createSignal, onMount } from 'solid-js';
+import { Show, createSignal } from 'solid-js';
 import penguLogo from '../assets/pengu.jpg';
-import { toast } from './Toaster';
 import { _t } from '../lib/i18n';
 import './Welcome.scss';
 
@@ -18,14 +17,14 @@ export function Welcome() {
     show(false);
   };
 
-  if (!welcome) {
-    onMount(() => {
-      toast.success(_t('active_status'), {
-        position: 'bottom-left',
-        duration: 7000
-      });
-    });
-  }
+  // if (!welcome) {
+  //   onMount(() => {
+  //     toast.success(_t('active_status'), {
+  //       position: 'bottom-left',
+  //       duration: 7000
+  //     });
+  //   });
+  // }
 
   return (
     <Show when={visible()}>
