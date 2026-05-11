@@ -1,9 +1,6 @@
-/* UpdateBanner — fixed-bottom notification, prefixed `pengu-update-banner-`. */
+@use '../styles/tokens' as *;
 
-$bg:        #e5e7eb;
-$fg:        #111827;
-$fg-muted:  #4b5563;
-$close:     #6b7280;
+/* UpdateBanner — fixed-bottom notification, prefixed `pengu-update-banner-`. */
 
 .pengu-update-banner {
   position: fixed;
@@ -11,9 +8,9 @@ $close:     #6b7280;
   left: 0;
   right: 0;
   z-index: 30;
-  background-color: $bg;
+  background-color: $surface-alt;
   color: $fg;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: $shadow-bottom;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -34,7 +31,7 @@ $close:     #6b7280;
   }
 
   &-hint {
-    color: $fg-muted;
+    color: $fg-meta;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -67,7 +64,7 @@ $close:     #6b7280;
     background: none;
     border: none;
     cursor: pointer;
-    color: $close;
+    color: $fg-muted;
     padding: 0.25rem;
     margin: -0.25rem;
     display: inline-flex;

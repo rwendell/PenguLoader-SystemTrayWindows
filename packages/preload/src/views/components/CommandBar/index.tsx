@@ -3,7 +3,7 @@ import { useRoot, VisualState } from './root';
 import { SearchBar } from './SearchBar';
 import { SearchResults } from './SearchResults';
 import { Animator } from './Animator';
-import './style.css';
+import './style.scss';
 
 export function CommandBar() {
 

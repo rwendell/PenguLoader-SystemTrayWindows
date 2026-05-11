@@ -1,17 +1,6 @@
+@use '../styles/tokens' as *;
+
 /* Toaster — fixed corner stacks, prefixed `pengu-toast`, `pengu-toaster-*`. Light DOM. */
-
-$success: #16a34a;
-$error:   #dc2626;
-$info:    #2563eb;
-$warning: #d97706;
-$loading: #6b7280;
-
-$bg:         #ffffff;
-$fg:         #1f2937;
-$close-fg:   #9ca3af;
-$close-fg-h: #4b5563;
-$shadow:     0 10px 15px -3px rgba(0, 0, 0, 0.1),
-             0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
 .pengu-toaster {
   position: fixed;
@@ -67,11 +56,11 @@ $shadow:     0 10px 15px -3px rgba(0, 0, 0, 0.1),
   width: 360px;
   max-width: calc(100vw - 2rem);
   padding: 0.625rem 0.75rem;
-  background-color: $bg;
-  color: $fg;
-  border-radius: 0.5rem;
+  background-color: $surface;
+  color: $fg-soft;
+  border-radius: $radius-lg;
   border-left: 4px solid transparent;
-  box-shadow: $shadow;
+  box-shadow: $shadow-md;
   font-size: 0.875rem;
 
   &-success {
@@ -126,13 +115,13 @@ $shadow:     0 10px 15px -3px rgba(0, 0, 0, 0.1),
     padding: 0.25rem;
     margin: -0.25rem;
     cursor: pointer;
-    color: $close-fg;
+    color: $fg-faint;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
     &:hover {
-      color: $close-fg-h;
+      color: $fg-meta;
     }
   }
 }

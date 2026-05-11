@@ -1,15 +1,6 @@
-/* Welcome — prefixed `pengu-welcome-`. Light DOM. */
+@use '../styles/tokens' as *;
 
-$surface:        #ffffff;
-$surface-muted:  #f9fafb;
-$fg:             #111827;
-$fg-body:        #000000;
-$fg-label:       #374151;
-$btn-bg:         rgba(209, 213, 219, 0.6);
-$btn-bg-hover:   #d1d5db;
-$backdrop:       rgba(0, 0, 0, 0.5);
-$shadow-strong:  0 20px 25px -5px rgba(0, 0, 0, 0.1),
-                 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+/* Welcome — prefixed `pengu-welcome-`. Light DOM. */
 
 .pengu-welcome {
   position: relative;
@@ -41,10 +32,10 @@ $shadow-strong:  0 20px 25px -5px rgba(0, 0, 0, 0.1),
   &-modal {
     position: relative;
     overflow: hidden;
-    border-radius: 0.5rem;
+    border-radius: $radius-lg;
     background-color: $surface;
     text-align: left;
-    box-shadow: $shadow-strong;
+    box-shadow: $shadow-lg;
     margin: 2rem 0;
     max-width: 32rem;
     transition: all 0.15s ease-out;
@@ -73,7 +64,7 @@ $shadow-strong:  0 20px 25px -5px rgba(0, 0, 0, 0.1),
   &-logo {
     width: 2.5rem;
     height: 2.5rem;
-    border-radius: 0.25rem;
+    border-radius: $radius-sm;
   }
 
   &-text {
@@ -95,7 +86,7 @@ $shadow-strong:  0 20px 25px -5px rgba(0, 0, 0, 0.1),
 
   &-msg {
     font-size: 0.875rem;
-    color: $fg-body;
+    color: $fg-deep;
   }
 
   &-badges {
@@ -131,14 +122,14 @@ $shadow-strong:  0 20px 25px -5px rgba(0, 0, 0, 0.1),
   &-checkbox {
     height: 1rem;
     width: 1rem;
-    border-radius: 0.25rem;
+    border-radius: $radius-sm;
     outline: none;
   }
 
   &-checkbox-label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: $fg-label;
+    color: $fg-meta;
   }
 
   &-ok {
@@ -146,15 +137,15 @@ $shadow-strong:  0 20px 25px -5px rgba(0, 0, 0, 0.1),
     font-size: 0.875rem;
     outline: none;
     border: none;
-    background-color: $btn-bg;
+    background-color: $btn-soft-bg;
     padding: 0.25rem 0.75rem;
     color: $fg;
-    border-radius: 0.25rem;
+    border-radius: $radius-sm;
     cursor: pointer;
     transition: background-color 0.1s ease-out;
 
     &:hover {
-      background-color: $btn-bg-hover;
+      background-color: $btn-soft-bg-hover;
     }
   }
 }

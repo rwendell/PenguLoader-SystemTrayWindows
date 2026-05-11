@@ -1,0 +1,96 @@
+// Pengu preload — shared design tokens.
+//
+// Every component SCSS pulls from here via:
+//
+//   @use '../styles/tokens' as *;        // from views/components/X.scss
+//   @use '../../styles/tokens' as *;     // from views/components/X/Y.scss
+//
+// Component-local values that aren't reused elsewhere (e.g. status accents
+// only used by Toaster) live here anyway to centralize the palette — single
+// source of truth wins over file locality. If you find yourself defining a
+// raw hex inside a component SCSS, promote it here instead.
+
+// =============================================================================
+// Surfaces
+// =============================================================================
+
+$surface:          #ffffff;   // primary panel / card background
+$surface-muted:    #f9fafb;   // subtle off-white (footers, sidebars)
+$surface-hover:    #f3f4f6;   // hover wash
+$surface-alt:      #e5e7eb;   // banner bg, hairline border value
+
+// =============================================================================
+// Foreground / text
+// =============================================================================
+
+$fg:               #111827;   // primary text
+$fg-soft:          #1f2937;   // body / chrome text
+$fg-meta:          #4b5563;   // labels, secondary
+$fg-muted:         #6b7280;   // tertiary, dismiss buttons
+$fg-faint:         #9ca3af;   // placeholders, disabled icons
+$fg-deep:          #000000;   // emphasis black
+
+// =============================================================================
+// Borders
+// =============================================================================
+
+$border:           #e5e7eb;   // hairline
+$border-strong:    #d1d5db;   // input borders, separators
+
+// =============================================================================
+// Accent (Pengu blue) + status colors
+// =============================================================================
+
+$accent:           #2563eb;
+$accent-soft:      rgba(37, 99, 235, 0.08);
+
+$success:          #16a34a;
+$error:            #dc2626;
+$info:             #2563eb;
+$warning:          #d97706;
+$loading:          #6b7280;
+
+// =============================================================================
+// Backdrops
+// =============================================================================
+
+$backdrop:         rgba(0, 0, 0, 0.5);
+$backdrop-soft:    rgba(0, 0, 0, 0.4);
+
+// =============================================================================
+// Shadows (Tailwind-style elevation ladder)
+// =============================================================================
+
+$shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+            0 2px 4px -2px rgba(0, 0, 0, 0.1);
+$shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+            0 4px 6px -4px rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 8px 10px -6px rgba(0, 0, 0, 0.1);
+$shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+// Subtle upward bottom-banner shadow.
+$shadow-bottom: 0 -4px 12px rgba(0, 0, 0, 0.08);
+
+// =============================================================================
+// Radii
+// =============================================================================
+
+$radius-sm:        0.25rem;
+$radius-md:        0.375rem;
+$radius-lg:        0.5rem;
+$radius-xl:        0.75rem;
+$radius-full:      9999px;
+
+// =============================================================================
+// Component-specific (kept here so a future re-theme touches one file only)
+// =============================================================================
+
+// CommandBar — translucent panel + dark active item.
+$cmdbar-bg:          rgba(255, 255, 255, 0.9);
+$cmdbar-active-bg:   #334155;   // slate-700
+$cmdbar-active-fg:   $surface;
+
+// Welcome modal — semi-transparent confirm button.
+$btn-soft-bg:        rgba(209, 213, 219, 0.6);
+$btn-soft-bg-hover:  $border-strong;
