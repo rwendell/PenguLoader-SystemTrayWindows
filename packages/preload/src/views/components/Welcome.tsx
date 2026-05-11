@@ -1,5 +1,4 @@
 import { Show, createSignal } from 'solid-js';
-import penguLogo from '../assets/pengu.jpg';
 import { _t } from '../lib/i18n';
 import './Welcome.scss';
 
@@ -36,7 +35,7 @@ export function Welcome() {
               <div class="pengu-welcome-body">
                 <div class="pengu-welcome-row">
                   <div class="pengu-welcome-logo-wrap">
-                    <img src={penguLogo} class="pengu-welcome-logo" alt="" />
+                    <img src="/lol-game-data/assets/v1/profile-icons/4216.jpg" class="pengu-welcome-logo" alt="" />
                   </div>
                   <div class="pengu-welcome-text">
                     <h3 class="pengu-welcome-title">Pengu Loader</h3>
