@@ -5,35 +5,14 @@ import type {
 } from '@pengujs/types';
 
 // =============================================================================
-// Persistence — DataStore-backed today, behind an interface so the future
-// per-plugin async storage layer (design.md §9) is a one-file swap.
-// =============================================================================
-
-export interface SettingsPersist {
-  load(id: string): Record<string, unknown> | undefined;
-  save(id: string, values: Record<string, unknown>): void;
-}
-
-const KEY_PREFIX = 'pengu:settings:';
-
-const dataStorePersist: SettingsPersist = {
-  load(id) {
-    return window.DataStore?.get<Record<string, unknown>>(KEY_PREFIX + id);
-  },
-  save(id, values) {
-    window.DataStore?.set(KEY_PREFIX + id, values);
-  },
-};
-
-let persist: SettingsPersist = dataStorePersist;
-
-/** Override the persistence backend (e.g. when the per-plugin async store lands). */
-export function setPersist(impl: SettingsPersist) {
-  persist = impl;
-}
-
-// =============================================================================
-// Registry + reactive store
+// Settings registry + reactive store.
+//
+// Persistence is the plugin author's choice — they pass a `state` object on
+// register() (a writable-JSON import, a DataStore proxy, or anything else),
+// and the drawer mutates it directly. `onChange` is the persistence hook.
+//
+// If no `state` is provided, an in-memory mirror is created from schema
+// defaults — useful for transient/ephemeral toggles.
 // =============================================================================
 
 interface Entry {
@@ -43,7 +22,7 @@ interface Entry {
   icon?: string;
   schema: Schema;
   hotkey?: string;
-  onChange?: (values: Record<string, unknown>) => void;
+  onChange?: (values: Record<string, unknown>) => void | Promise<void>;
   values: Accessor<Record<string, unknown>>;
   setValues: (patch: Record<string, unknown>) => void;
 }
@@ -63,8 +42,12 @@ function bumpTick() {
 }
 
 // =============================================================================
-// Schema helpers — flatten defaults, fill from persisted blob
+// Schema helpers
 // =============================================================================
+
+function fieldHoldsValue(field: Field): boolean {
+  return field.type !== 'action' && field.type !== 'note';
+}
 
 function defaultsFromSchema(schema: Schema): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -76,20 +59,18 @@ function defaultsFromSchema(schema: Schema): Record<string, unknown> {
   return out;
 }
 
-function fieldHoldsValue(field: Field): boolean {
-  return field.type !== 'action' && field.type !== 'note';
-}
-
-function mergeWithDefaults(
-  defaults: Record<string, unknown>,
-  persisted: Record<string, unknown> | undefined,
-): Record<string, unknown> {
-  if (!persisted) return { ...defaults };
-  const out: Record<string, unknown> = {};
-  for (const k of Object.keys(defaults)) {
-    out[k] = k in persisted ? persisted[k] : defaults[k];
+/**
+ * Fill missing keys in the supplied state with their schema defaults.
+ * Mutates in place — the plugin's `state` reference is updated so a later
+ * `state.$write()` captures the defaulted values.
+ */
+function fillDefaults(schema: Schema, state: Record<string, unknown>) {
+  for (const [key, field] of Object.entries(schema)) {
+    if (!fieldHoldsValue(field)) continue;
+    if (!(key in state)) {
+      state[key] = (field as Extract<Field, { default: unknown }>).default;
+    }
   }
-  return out;
 }
 
 // =============================================================================
@@ -180,40 +161,60 @@ function ensureHotkeyListener() {
 // Public API (called from window.Settings)
 // =============================================================================
 
-function nextHotkeyClear(forId: string) {
+function clearHotkeysFor(forId: string) {
   for (const [k, v] of hotkeyMap) {
     if (v === forId) hotkeyMap.delete(k);
   }
 }
 
 export function register<S extends Schema>(opts: SettingsRegister<S>): SettingsHandle<InferValues<S>> {
-  const { id, name, description, icon, schema, hotkey, onChange } = opts;
+  const { id, name, description, icon, schema, hotkey, onChange, state } = opts;
 
   // Replace existing entry (handles HMR / re-register).
   const existing = entries.get(id);
   if (existing) {
     console.warn(`[pengu] Settings.register("${id}") replaced an existing registration`);
-    nextHotkeyClear(id);
+    clearHotkeysFor(id);
     const t = debounceTimers.get(id);
     if (t !== undefined) { window.clearTimeout(t); debounceTimers.delete(id); }
   }
 
-  const defaults = defaultsFromSchema(schema);
-  const initial = mergeWithDefaults(defaults, persist.load(id));
+  // The backing state object. If the plugin supplied one, mutate it directly
+  // so `state.$write()` (or any external persistence) sees current values.
+  // Otherwise we own a fresh object from schema defaults (in-memory only).
+  const backing: Record<string, unknown> =
+    (state as Record<string, unknown> | undefined) ?? defaultsFromSchema(schema);
+  fillDefaults(schema, backing);
 
-  const [values, setValuesSig] = createSignal<Record<string, unknown>>(initial);
+  // Solid signal mirrors `backing` so the drawer rerenders on writes through
+  // `setValues`. External mutations to `backing` (without going through
+  // `setValues`) don't refresh the drawer — documented behavior; plugins
+  // that need that contract should funnel through `set()`.
+  const [values, setValuesSig] = createSignal<Record<string, unknown>>({ ...backing });
 
   const setValues = (patch: Record<string, unknown>) => {
-    const merged = { ...values(), ...patch };
-    setValuesSig(merged);
-    persist.save(id, merged);
+    // Mutate the plugin-owned object in place AND update the signal copy.
+    // Two writes are intentional: plugin reads `backing` (for $write), drawer
+    // reads `values()` (for reactivity).
+    Object.assign(backing, patch);
+    setValuesSig({ ...backing });
+
     if (onChange) {
       const t = debounceTimers.get(id);
       if (t !== undefined) window.clearTimeout(t);
       debounceTimers.set(id, window.setTimeout(() => {
         debounceTimers.delete(id);
-        try { onChange(merged as InferValues<S>); }
-        catch (err) { console.error(`[pengu] onChange "${id}" threw`, err); }
+        try {
+          const result = onChange(backing as InferValues<S>);
+          // Swallow async rejections — plugins are responsible for their own
+          // persistence errors; we don't want one bad save to crash the host.
+          if (result && typeof (result as Promise<void>).catch === 'function') {
+            (result as Promise<void>).catch(err =>
+              console.error(`[pengu] onChange "${id}" rejected`, err));
+          }
+        } catch (err) {
+          console.error(`[pengu] onChange "${id}" threw`, err);
+        }
       }, 80));
     }
   };
@@ -249,7 +250,7 @@ export function register<S extends Schema>(opts: SettingsRegister<S>): SettingsH
 export function unregister(id: string) {
   if (!entries.has(id)) return;
   entries.delete(id);
-  nextHotkeyClear(id);
+  clearHotkeysFor(id);
   const t = debounceTimers.get(id);
   if (t !== undefined) { window.clearTimeout(t); debounceTimers.delete(id); }
 

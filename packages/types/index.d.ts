@@ -170,14 +170,22 @@ export type Schema = Record<string, Field>;
  * import _config from './config.json';
  * const config = _config as WritableJson<typeof _config>;
  * config.foo = 123;
- * await config.$write();
+ * await config.$write();      // compact
+ * await config.$write(2);     // 2-space pretty print
+ * await config.$write('\t');  // tab-indented pretty print
  * ```
+ *
+ * `$write(space?)` mirrors `JSON.stringify`'s third argument. `space` can be
+ * a number 0–10 (count of spaces) or a string up to 10 chars long (used as
+ * the indent verbatim); anything else is ignored and the output is compact.
  *
  * `$write` only exists on JSON modules whose root is an object or array
  * (primitives can't carry properties). Calling `$write` on a non-writable
  * root throws at runtime; the type does not enforce that distinction.
  */
-export type WritableJson<T> = T & { readonly $write: () => Promise<void> };
+export type WritableJson<T> = T & {
+  readonly $write: (space?: number | string) => Promise<void>;
+};
 
 /** Maps a Field to its persisted value type. `action` and `note` have no value. */
 export type FieldValue<F> =
@@ -203,7 +211,7 @@ export type InferValues<S extends Schema> = {
 };
 
 export interface SettingsRegister<S extends Schema> {
-  /** Stable id — used as the persistence key prefix and the drawer entry key. Convention: plugin folder name. */
+  /** Stable id — used as the drawer entry key. Convention: plugin folder name. */
   id: string;
   /** Display name in the drawer sidebar. */
   name: string;
@@ -221,10 +229,29 @@ export interface SettingsRegister<S extends Schema> {
    */
   hotkey?: string;
   /**
-   * Fired (debounced ~80 ms) whenever any value changes — including when the
-   * plugin's own `set` mutates them. Receives the full values object.
+   * Backing state the drawer reads and mutates directly. Pair with a writable-
+   * JSON import for persistence:
+   *
+   * ```ts
+   * import config from './config.json';
+   * Settings.register({
+   *   id: 'foo', name: 'Foo', schema,
+   *   state: config,
+   *   onChange: () => config.$write(),
+   * });
+   * ```
+   *
+   * Missing keys are filled from `schema[key].default` at register time.
+   * Omit `state` for ephemeral in-memory settings (lost on reload).
    */
-  onChange?: (values: InferValues<S>) => void;
+  state?: InferValues<S>;
+  /**
+   * Fired (debounced ~80 ms) after every mutation — drawer toggles and
+   * `set()` calls alike. Use this as your persistence hook (e.g.
+   * `() => state.$write()`). Async returns are awaited only to surface
+   * rejections in the console; the drawer doesn't block on them.
+   */
+  onChange?: (values: InferValues<S>) => void | Promise<void>;
 }
 
 export interface SettingsHandle<V> {
