@@ -86,13 +86,22 @@ async function loadPlugin(entry: string) {
 const PLUGIN_LOAD_TIMEOUT_MS = 15_000;
 
 const allLoaded = Promise.all(plugins.map(loadPlugin));
-const timedOut = new Promise<void>(resolve => setTimeout(() => {
-  console.warn('%c Pengu ', 'background: #183461; color: #fff',
-    `plugin load exceeded ${PLUGIN_LOAD_TIMEOUT_MS}ms — releasing rcp-fe-common-libs gate. Slow plugins continue loading in the background.`);
-  resolve();
-}, PLUGIN_LOAD_TIMEOUT_MS));
 
-const waitable = Promise.race([allLoaded, timedOut]);
+// Cancel the timer once plugins finish so the warning only fires on a real
+// timeout. (Promise.race resolves on the winner but doesn't cancel the loser
+// — without clearTimeout the warning would fire 15s after every launch.)
+const waitable = new Promise<void>(resolve => {
+  const handle = window.setTimeout(() => {
+    console.warn('%c Pengu ', 'background: #183461; color: #fff',
+      `plugin load exceeded ${PLUGIN_LOAD_TIMEOUT_MS}ms — releasing rcp-fe-common-libs gate. Slow plugins continue loading in the background.`);
+    resolve();
+  }, PLUGIN_LOAD_TIMEOUT_MS);
+
+  allLoaded.finally(() => {
+    window.clearTimeout(handle);
+    resolve();
+  });
+});
 
 // Listen for the first rcp, it's also the first listener
 rcp.preInit('rcp-fe-common-libs', async function () {
