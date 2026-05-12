@@ -102,7 +102,18 @@ public sealed partial class MacOSHost : IHost
         _browser.Navigate(url);
         _navUrl = url;
 
-        OpenWindow();
+        if (AppEnv.Silent)
+        {
+            // Tray-only boot (used by the LaunchAgent at login). The browser
+            // + JsBridge are still wired so that when the user later picks
+            // "Open hub" from the menubar, OpenWindow() can re-parent the
+            // ready-and-loaded WKWebView onto a fresh BorderlessWindow.
+            Log.Info("--silent: skipping initial window open, tray only");
+        }
+        else
+        {
+            OpenWindow();
+        }
         return Task.CompletedTask;
     }
 

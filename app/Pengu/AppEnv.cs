@@ -46,10 +46,26 @@ public static class AppEnv
     /// <summary>Drop log threshold to <see cref="Logging.LogLevel.Debug"/>.</summary>
     public static bool Verbose { get; private set; }
 
+    /// <summary>
+    /// Start without opening the main hub window. Daemon still runs the
+    /// activation watcher and the tray icon; the user opens the hub on
+    /// demand via the menubar's "Open hub" item.
+    ///
+    /// <para>Set either by the <c>--silent</c> CLI flag or, on macOS, by
+    /// <c>AppDelegate</c> detecting a Login-Item launch via
+    /// <c>NSAppleEventManager</c> (Login Items have no CLI-arg mechanism).</para>
+    /// </summary>
+    public static bool Silent { get; private set; }
+
+    /// <summary>Programmatically request silent mode (e.g. from the macOS
+    /// Login-Item-launch detection path).</summary>
+    public static void MarkSilent() => Silent = true;
+
     /// <summary>Apply CLI overrides:
     /// <list type="bullet">
     ///   <item><c>--dev</c> / <c>--dev=URL</c> — enable Vite dev mode.</item>
     ///   <item><c>--verbose</c> / <c>-v</c> — drop log threshold.</item>
+    ///   <item><c>--silent</c> — boot without the main window (tray only).</item>
     /// </list></summary>
     public static void ParseCommandLine(string[] args)
     {
@@ -66,6 +82,8 @@ public static class AppEnv
             }
             else if (a is "--verbose" or "-v")
                 Verbose = true;
+            else if (a == "--silent")
+                Silent = true;
         }
     }
 }
