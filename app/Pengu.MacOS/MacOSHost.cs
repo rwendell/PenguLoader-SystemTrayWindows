@@ -7,6 +7,7 @@ using Pengu.Config;
 using Pengu.Logging;
 using Pengu.MacOS.Browser;
 using Pengu.MacOS.Startup;
+using Pengu.MacOS.State;
 using Pengu.MacOS.Tray;
 using Pengu.MacOS.Window;
 using Pengu.Pack;
@@ -147,6 +148,7 @@ public sealed partial class MacOSHost : IHost
     }
 
     private string WindowStatePath => Path.Combine(DataRoot, "window.json");
+    private string ActiveStatePath => Path.Combine(DataRoot, "active");
 
     public void RegisterActivationActions(ActivationActionRegistry registry, ConfigStore config, EventBus bus)
     {
@@ -156,14 +158,34 @@ public sealed partial class MacOSHost : IHost
         // onError → native NSAlert so users see "core.dylib missing" /
         // "respawn failed" failures even if the hub UI swallows the
         // ActivationResult.
-        registry.Register(new Pengu.MacOS.Activation.RespawnAction(
+        var respawn = new Pengu.MacOS.Activation.RespawnAction(
             CoreModulePath,
             bus,
-            onError: Pengu.MacOS.Native.Alerts.ShowError));
+            onError: Pengu.MacOS.Native.Alerts.ShowError);
+        registry.Register(respawn);
 
         // Menubar status item — required on macOS so the daemon stays
         // accessible after the user closes the hub window.
         _statusItem = new StatusItem(this, registry, bus);
+
+        // Persist activation state across Pengu launches in <DataRoot>/active.
+        // Mirrors the Tauri loader's `active` file (plain "1"/"0") so users
+        // migrating from Tauri keep their last toggle state. Windows uses IFEO
+        // for this — its registry entry IS the bit — but macOS Universal mode
+        // depends on Pengu's own LcuxWatcher running, so we need our own.
+        bus.Subscribe((name, payload) =>
+        {
+            if (name != "activation:stateChanged" || payload is null) return;
+            // Payload shape: {"active":true} or {"active":false}. Cheap parse
+            // since we control both ends; if the shape changes, fix here.
+            ActiveStateStore.Save(ActiveStatePath, payload.Contains("true"));
+        });
+
+        if (ActiveStateStore.TryLoad(ActiveStatePath))
+        {
+            Log.Info("ActiveStateStore: restoring activation from last session");
+            _ = respawn.SetActiveAsync(true, CancellationToken.None);
+        }
 
         _ = config;
     }
