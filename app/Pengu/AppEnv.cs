@@ -49,17 +49,11 @@ public static class AppEnv
     /// <summary>
     /// Start without opening the main hub window. Daemon still runs the
     /// activation watcher and the tray icon; the user opens the hub on
-    /// demand via the menubar's "Open hub" item.
-    ///
-    /// <para>Set either by the <c>--silent</c> CLI flag or, on macOS, by
-    /// <c>AppDelegate</c> detecting a Login-Item launch via
-    /// <c>NSAppleEventManager</c> (Login Items have no CLI-arg mechanism).</para>
+    /// demand via the menubar's "Open hub" item. Set by the <c>--silent</c>
+    /// CLI flag — on macOS the LaunchAgent plist's ProgramArguments passes
+    /// it through at login launch.
     /// </summary>
     public static bool Silent { get; private set; }
-
-    /// <summary>Programmatically request silent mode (e.g. from the macOS
-    /// Login-Item-launch detection path).</summary>
-    public static void MarkSilent() => Silent = true;
 
     /// <summary>Apply CLI overrides:
     /// <list type="bullet">

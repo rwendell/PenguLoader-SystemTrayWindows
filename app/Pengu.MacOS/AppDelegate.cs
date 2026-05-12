@@ -9,23 +9,30 @@ internal sealed class AppDelegate : NSApplicationDelegate
 {
     private MacOSHost? _host;
 
+    public override void WillFinishLaunching(NSNotification notification)
+    {
+        // Opt out of macOS's "Reopen apps when logging back in" — without
+        // this, every reboot launches Pengu twice: once via session
+        // restore (no args, window opens) and once via our LaunchAgent
+        // (--silent, exits when it sees the restored peer). Net effect:
+        // the user sees a window after every reboot even with
+        // "Start at login" set to "silent". Call it on every launch
+        // because macOS re-enables relaunch any time the user opens the
+        // app manually.
+        NSApplication.SharedApplication.DisableRelaunchOnLogin();
+    }
+
     public override async void DidFinishLaunching(NSNotification notification)
     {
         // async void is the standard pattern for AppKit delegate callbacks
         // dispatching to async work — exceptions are caught explicitly here so
         // they don't crash the process via Task.UnobservedTaskException.
+        //
+        // Silent-on-startup arrives as a real CLI flag (--silent) thanks to
+        // the LaunchAgent plist's ProgramArguments. AppEnv.ParseCommandLine
+        // has already set AppEnv.Silent before this runs (Program.Main parses
+        // before NSApplication.Init), so no Apple-event sniffing is needed.
         Log.Info("Pengu.MacOS launched (pid={0})", Environment.ProcessId);
-
-        // Login Items have no CLI-arg path, so we detect a login-time launch
-        // via the AppleEvent that fired this DidFinishLaunching and flag
-        // silent. The kAEOpenApplication event carries a 'prdt' (keyAEPropData)
-        // descriptor whose type code is 'lgit' (keyAELaunchedAsLogInItem)
-        // when AppKit launches us from a System Events login item.
-        if (WasLaunchedAtLogin())
-        {
-            Log.Info("Launched as a login item; auto-silent");
-            AppEnv.MarkSilent();
-        }
 
         try
         {
@@ -38,55 +45,6 @@ internal sealed class AppDelegate : NSApplicationDelegate
         {
             Log.Error(ex, "Pengu startup failed");
             NSApplication.SharedApplication.Terminate(this);
-        }
-    }
-
-    /// <summary>
-    /// Inspect <c>NSAppleEventManager.CurrentAppleEvent</c> to determine
-    /// whether AppKit launched us as a System Events login item. Returns
-    /// false on any binding/event mismatch — silent-on-startup is a UX
-    /// nicety, not a correctness boundary.
-    /// </summary>
-    /// <remarks>
-    /// The 'oapp' (kAEOpenApplication) event, when fired by a login-item
-    /// launch, carries a 'prdt' (keyAEPropData) parameter holding an
-    /// <c>'enum'</c>-typed descriptor whose enum value is <c>'lgit'</c>
-    /// (keyAELaunchedAsLogInItem). The descriptor's own type is
-    /// <c>'enum'</c> — the 'lgit' code is read via EnumCodeValue(), not
-    /// from the descriptor type itself.
-    /// </remarks>
-    private static bool WasLaunchedAtLogin()
-    {
-        try
-        {
-            const uint kAEPropData            = 0x70726474u; // 'prdt'
-            const uint kAELaunchedAsLogInItem = 0x6c676974u; // 'lgit'
-
-            var ev = NSAppleEventManager.SharedAppleEventManager.CurrentAppleEvent;
-            if (ev is null)
-            {
-                Log.Debug("WasLaunchedAtLogin: CurrentAppleEvent is null");
-                return false;
-            }
-
-            Log.Debug("WasLaunchedAtLogin: eventClass=0x{0:x8} eventID=0x{1:x8}",
-                      (uint)ev.EventClass, (uint)ev.EventID);
-
-            var prop = ev.ParamDescriptorForKeyword(kAEPropData);
-            if (prop is null)
-            {
-                Log.Debug("WasLaunchedAtLogin: no 'prdt' param on event");
-                return false;
-            }
-
-            uint code = prop.EnumCodeValue();
-            Log.Debug("WasLaunchedAtLogin: prdt enumCode=0x{0:x8}", code);
-            return code == kAELaunchedAsLogInItem;
-        }
-        catch (Exception ex)
-        {
-            Log.Debug("WasLaunchedAtLogin failed: {0}", ex.Message);
-            return false;
         }
     }
 

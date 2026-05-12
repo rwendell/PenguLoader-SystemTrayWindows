@@ -64,10 +64,12 @@ internal sealed class BorderlessWindow : NSWindow
         // CSS in the hub for the explicit dragbar regions.
         MovableByWindowBackground = true;
 
-        // Keep the NSObject alive across hide/show. Default would dealloc on
-        // close (orderOut) and re-show would crash.
-        ReleaseWhenClosed(false);
-
+        // Default ReleasedWhenClosed=true: Close() runs willClose → orderOut →
+        // dealloc. We always create a fresh BorderlessWindow on the next
+        // OpenWindow (the WKWebView is detached in WillClose and re-parented),
+        // so there's nothing to preserve. Keeping the window alive after
+        // close caused a visual hang where the close button appeared to
+        // miniaturize instead of close.
         if (initial is null || !IsOnAnyScreen(Frame))
             Center();
         if (initial?.Maximized == true && !IsZoomed)

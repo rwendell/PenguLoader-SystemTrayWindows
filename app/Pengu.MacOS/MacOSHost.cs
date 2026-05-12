@@ -63,6 +63,15 @@ public sealed partial class MacOSHost : IHost
     }
 
     private string? _navUrl;
+    /// <summary>
+    /// Tracks whether the user has closed the main window at least once.
+    /// On the first <see cref="OpenWindow"/> call, the WKWebView has already
+    /// been told to load <c>_navUrl</c> from <see cref="OpenMainWindowAsync"/>
+    /// — re-navigating would be redundant. On any subsequent reopen the DOM
+    /// holds stale transient state (hover, scroll, …) from the previous
+    /// session and we re-navigate to clear it.
+    /// </summary>
+    private bool _hadCloseCycle;
 
     public Task OpenMainWindowAsync(
         string url,
@@ -139,6 +148,17 @@ public sealed partial class MacOSHost : IHost
         var window = new BorderlessWindow(initial: initial, onWillClose: HandleWindowWillClose);
         window.ContentView = _browser.View;
         _mainWindow = window;
+
+        // Re-navigate on respawn so the DOM starts fresh. WKWebView lives
+        // across close/reopen (recreating it would leak JsBridge subscribers
+        // on the EventBus), so without this the DOM keeps stale transient
+        // state — e.g., :hover on the close button the user just clicked
+        // stays lit when the window comes back. A reload of the same URL
+        // is the cheapest way to clear that. Skipped on the very first
+        // open because OpenMainWindowAsync already navigated.
+        if (_hadCloseCycle && _navUrl is not null)
+            _browser.Navigate(_navUrl);
+
         window.ShowAndFocus();
     }
 
@@ -155,6 +175,7 @@ public sealed partial class MacOSHost : IHost
         // we'll re-parent it onto the next freshly-created window.
         _browser?.View.RemoveFromSuperview();
         _mainWindow = null;
+        _hadCloseCycle = true;
         Log.Info("Main window closed; daemon continues in tray");
     }
 
@@ -294,21 +315,23 @@ public sealed partial class MacOSHost : IHost
         return Task.FromResult(panel.Urls.FirstOrDefault()?.Path);
     }
 
-    public bool StartupIsEnabled() => LoginItem.IsEnabled();
+    public bool StartupIsEnabled() => LaunchAgent.IsEnabled();
 
     public void SetStartupEnabled(bool enabled)
     {
         if (enabled)
         {
-            // Login Items want the .app bundle path (System Events launches
-            // the bundle via LaunchServices, not the inner exe). ExeDirectory
-            // is Contents/MonoBundle/, so the bundle is two levels up.
-            var bundle = Path.GetFullPath(Path.Combine(ExeDirectory, "..", ".."));
-            LoginItem.Enable(bundle);
+            // LaunchAgent plist's ProgramArguments needs the inner Mach-O
+            // binary (launchd execs it directly, no LaunchServices). The
+            // assembly name is "Pengu" so the binary is Contents/MacOS/Pengu.
+            // ExeDirectory is Contents/MonoBundle/, so the binary is one
+            // level up and into MacOS/.
+            var binary = Path.GetFullPath(Path.Combine(ExeDirectory, "..", "MacOS", "Pengu"));
+            LaunchAgent.Enable(binary);
         }
         else
         {
-            LoginItem.Disable();
+            LaunchAgent.Disable();
         }
     }
 
