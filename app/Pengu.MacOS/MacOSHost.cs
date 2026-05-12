@@ -261,21 +261,21 @@ public sealed partial class MacOSHost : IHost
         return Task.FromResult(panel.Urls.FirstOrDefault()?.Path);
     }
 
-    public bool StartupIsEnabled() => LaunchAgent.IsEnabled();
+    public bool StartupIsEnabled() => LoginItem.IsEnabled();
 
     public void SetStartupEnabled(bool enabled)
     {
         if (enabled)
         {
-            // The agent's `Program` key needs the absolute path to the
-            // .app's inner binary. AppContext.BaseDirectory is
-            // Contents/MonoBundle/, so the binary is ../MacOS/Pengu.
-            var binary = Path.GetFullPath(Path.Combine(ExeDirectory, "..", "MacOS", "Pengu"));
-            LaunchAgent.Enable(binary);
+            // Login Items want the .app bundle path (System Events launches
+            // the bundle via LaunchServices, not the inner exe). ExeDirectory
+            // is Contents/MonoBundle/, so the bundle is two levels up.
+            var bundle = Path.GetFullPath(Path.Combine(ExeDirectory, "..", ".."));
+            LoginItem.Enable(bundle);
         }
         else
         {
-            LaunchAgent.Disable();
+            LoginItem.Disable();
         }
     }
 
